@@ -1,7 +1,7 @@
 [project]
-name = "photocategorizationtool"
+name = "photo_categorizer"
 version = "0.1.0"
-description = ""
+description = "AI-powered desktop app for photo categorization"
 authors = [
     {name = "KaiLi0822",email = "18840864172@163.com"}
 ]
