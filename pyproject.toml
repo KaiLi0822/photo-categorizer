@@ -1,0 +1,18 @@
+[project]
+name = "photocategorizationtool"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "KaiLi0822",email = "18840864172@163.com"}
+]
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "pyqt6 (>=6.8.1,<7.0.0)",
+    "flask (>=3.1.0,<4.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
