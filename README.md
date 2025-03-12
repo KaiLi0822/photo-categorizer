@@ -85,41 +85,70 @@ photo-categorizer/
 
 ### 1. **Install Requirements**
 
-
-
-```bash
-poetry install
-```
+  ```bash
+  poetry install
+  ```
 
 ### 2. **Run the Application**
 
-```bash
-python photo_categorizer/main.py
-```
+  ```bash
+  python photo_categorizer/main.py
+  ```
 
 ### 3. **Optional: Package the App**
 
 Using PyInstaller:
-- Windows
 
-```bash
-pyinstaller --windowed --onefile --name "PhotoCategorizer" ^
-  --add-data "photo_categorizer\\frontend\\styles.qss;photo_categorizer/frontend" ^
-  --add-data "photo_categorizer\\backend;photo_categorizer/backend" ^
-  --add-data "photo_categorizer\\model;photo_categorizer/model" ^
-  photo_categorizer\\main.py
-```
 - Mac
+  - Package the backend as an executable file
 
-```bash
-pyinstaller --windowed --onefile --name "PhotoCategorizer" \
-  --add-data "photo_categorizer/frontend/styles.qss:photo_categorizer/frontend" \
-  --add-data "photo_categorizer/backend:photo_categorizer/backend" \
-  --add-data "photo_categorizer/model:photo_categorizer/model" \
-  photo_categorizer/main.py
+    ```bash
+    pyinstaller --onefile --name backend_executable \
+    --hidden-import ftfy --hidden-import regex \
+    --add-data "/path/to/qai_hub_models/asset_bases.yaml:qai_hub_models" \
+    photo_categorizer/backend/backend.py
+    ```
 
-```
+  - Test the backend independently
 
+    ```bash
+    chmod +x ./backend_executable
+    ./backend_executable
+    ```
+    
+  - Change the code(Line 62 - 80 in frontend.py)
+
+    Inside frontend.py, adjust the backend launching logic depending on whether you are running locally for development or as a packaged app:
+    
+    ```python
+    # --- Run backend in local development mode (using Python script) ---
+    # This is used when running the app locally (e.g., during development in IDE).
+    backend_path = self.resource_path(os.path.join('backend', 'backend.py'))
+    backend_process = subprocess.Popen(
+        [sys.executable, backend_path],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE
+    )
+    
+    # --- Run backend in packaged app mode (using compiled executable) ---
+    # Uncomment this block when running the packaged application.
+    # Ensure that the backend executable has proper permissions to run.
+    # backend_path = self.resource_path('backend_executable/backend_executable')  # Path to backend executable
+    # os.chmod(backend_path, 0o755)  # Ensure executable permission (rwxr-xr-x)
+    # backend_process = subprocess.Popen(
+    #     [backend_path],
+    #     stdout=subprocess.PIPE,
+    #     stderr=subprocess.PIPE
+    # )
+    ```
+    
+  - Package the app
+
+    ```bash
+    pyinstaller --windowed --onefile --name PhotoCategorizer \
+    --add-binary "dist/backend_executable:backend_executable" \
+    photo_categorizer/main.py
+    ```
 
 ---
 

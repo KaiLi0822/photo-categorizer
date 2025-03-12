@@ -4,6 +4,7 @@ import subprocess
 import requests
 import atexit
 import socket
+import stat
 
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QLabel, QHBoxLayout, QPushButton,
@@ -16,12 +17,33 @@ from photo_categorizer.state import StateTypes
 from PyQt6.QtWidgets import QProgressBar
 from photo_categorizer.config import BASE_URL, BACKEND_FILE_PATH, BACKEND_PORT, BACKEND_HOST
 
+QSS_STYLE = """
+QWidget {
+    font-size: 14px;
+}
 
+QLineEdit {
+    padding: 8px;
+    border: 1px solid gray;
+    border-radius: 5px;
+}
+
+QPushButton {
+    padding: 8px;
+    background-color: #0078D7;
+    color: white;
+    border-radius: 5px;
+}
+
+QPushButton:hover {
+    background-color: #005BB5;
+}
+"""
 class PhotoCategorizerApp(QWidget):
     def __init__(self):
         super().__init__()
         # GUI setup
-        self.setStyleSheet(self.load_stylesheet())
+        self.setStyleSheet(QSS_STYLE)
         self.setWindowTitle("Photo Categorizer")
         self.setGeometry(200, 200, 800, 600)
         self.output_fields = []
@@ -34,13 +56,28 @@ class PhotoCategorizerApp(QWidget):
     # ---------------------- Backend Management ----------------------
 
     def start_backend(self):
+
         """Start Flask backend and ensure it's ready."""
+
+        # --- Run backend in local development mode (using Python script) ---
+        # This is used when running the app locally (e.g., during development in IDE).
         backend_path = self.resource_path(os.path.join('backend', 'backend.py'))
         backend_process = subprocess.Popen(
             [sys.executable, backend_path],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
+
+        # --- Run backend in packaged app mode (using compiled executable) ---
+        # Uncomment this block when running the packaged application.
+        # Ensure that the backend executable has proper permissions to run.
+        # backend_path = self.resource_path('backend_executable/backend_executable')  # Path to backend executable
+        # os.chmod(backend_path, 0o755)  # Ensure executable permission (rwxr-xr-x)
+        # backend_process = subprocess.Popen(
+        #     [backend_path],
+        #     stdout=subprocess.PIPE,
+        #     stderr=subprocess.PIPE
+        # )
 
         QTimer.singleShot(500, lambda: self.check_backend_ready())  # Check soon
         atexit.register(self.cleanup_backend, backend_process)
@@ -172,15 +209,6 @@ class PhotoCategorizerApp(QWidget):
         """Get absolute path to resource, works for dev and PyInstaller."""
         base_path = getattr(sys, '_MEIPASS', os.path.abspath("."))
         return os.path.join(base_path, relative_path)
-
-    def load_stylesheet(self):
-        """Load QSS stylesheet for styling (PyInstaller safe)."""
-        qss_path = self.resource_path(os.path.join('frontend', 'styles.qss'))
-        if os.path.exists(qss_path):
-            with open(qss_path, "r") as file:
-                return file.read()
-        logger.info("Warning: Stylesheet not found.")
-        return ""
 
     def select_folder(self):
         """Select the target folder and notify backend to load images."""
