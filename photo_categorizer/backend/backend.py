@@ -2,47 +2,150 @@ from flask import Flask, request, jsonify
 import os
 import shutil
 from photo_categorizer.logger import logger
-from photo_categorizer.model.clip_engine import ClipEngine
+import threading
+from photo_categorizer.model.model_factory import ModelFactory
+from photo_categorizer.model.model_types import ModelTypes
+from photo_categorizer.state import StateTypes
+from photo_categorizer.model.BaseModelEngine import BaseModelEngine
 
 app = Flask(__name__)
-clip_engine = ClipEngine()
 
-@app.route('/categorize', methods=['POST'])
-def categorize():
+model: BaseModelEngine = None  # Lazy initialization
+
+# Dictionary to store status of each folder being processed
+processing_status = {}  # Example: { "dogs": "processing", "cats": "completed" }
+
+
+# ----------------- Load Model -----------------
+@app.route('/load-model', methods=['POST'])
+def load_model():
+    """API to load model."""
     data = request.json
-    target_folder = data['target_folder']
-    outputs = data['outputs']
-    logger.info(f"Received categorization request: {data}")
+    model_name = data.get('model')
 
-    if not os.path.isdir(target_folder):
-        return jsonify({"error": "Invalid target folder."}), 400
+    # Start model loading in a separate thread
+    threading.Thread(target=load_model_async, args=(model_name,), daemon=True).start()
+    return jsonify({"message": "Model loading started in background."})
 
-    image_files = [f for f in os.listdir(target_folder) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
 
-    for output in outputs:
-        folder_name = output['folder_name']
-        prompt = output['prompt']
-        output_path = os.path.join(target_folder, folder_name)
-        os.makedirs(output_path, exist_ok=True)
+def load_model_async(model_name: str):
+    """Run model loading in a separate thread to avoid blocking requests."""
+    global model
+    try:
+        if model is None:
+            model = ModelFactory.get_model(model_name)
+        logger.info(f"Model successfully loaded: {model_name}")
+    except Exception as e:
+        logger.error(f"Failed to load model: {e}")
 
-        for image_file in image_files:
-            image_path = os.path.join(target_folder, image_file)
-            if filter_images_by_prompt(image_path, prompt):
-                shutil.copy(image_path, output_path)
 
-    return jsonify({"message": "Categorization done successfully!"})
+@app.route('/model-status', methods=['GET'])
+def model_status():
+    """API to get model loading status."""
+    global model
+    if model is None:
+        return jsonify({"status": StateTypes.MODEL_LOADING.value})
+    else:
+        return jsonify({"status": StateTypes.MODEL_LOADED.value})
 
+
+# ----------------- Load Images -----------------
 @app.route('/load-images', methods=['POST'])
 def load_images():
-    """API to load images from a folder into memory."""
+    """API to trigger image loading without blocking."""
+    global model
+    if model is None:
+        return jsonify({"error": "Model is not loaded. Please load the model first."}), 400
+
     data = request.json
     target_folder = data.get('target_folder')
 
     if not target_folder or not os.path.isdir(target_folder):
         return jsonify({"error": "Invalid target folder."}), 400
 
-    clip_engine.load_images_from_directory(target_folder)
-    return jsonify({"message": f"Loaded {len(clip_engine.images)} images from {target_folder}."})
+    # Start image loading
+    model.load_images_from_directory(target_folder)
+    return jsonify({"message": "Images loaded."})
 
+
+# ----------------- Start Processing -----------------
+@app.route('/start-process', methods=['POST'])
+def start_process():
+    """API to start processing one output folder with a given prompt."""
+    global model
+    if model is None:
+        return jsonify({"error": "Model is not loaded. Please load the model first."}), 400
+
+    data = request.json
+    target_folder = data.get('target_folder')
+    output = data.get('output')
+
+    if not target_folder or not os.path.isdir(target_folder):
+        return jsonify({"error": "Invalid target folder."}), 400
+    if not output or 'folder_name' not in output or 'prompt' not in output:
+        return jsonify({"error": "Invalid output data."}), 400
+
+    folder_name = output['folder_name']
+    prompt = output['prompt']
+
+    # Set status to "processing"
+    processing_status[folder_name] = "processing"
+    logger.info(f"Started processing for {folder_name} with prompt: {prompt}")
+
+    # Start actual processing in a separate thread
+    threading.Thread(
+        target=process_images_async,
+        args=(target_folder, folder_name, prompt),
+        daemon=True
+    ).start()
+
+    return jsonify({"message": f"Processing started for {folder_name}."})
+
+
+def process_images_async(target_folder, output_folder, prompt):
+    """Process images and move matches to output folder."""
+    global model, processing_status
+    try:
+        output_path = os.path.join(target_folder, output_folder)
+        os.makedirs(output_path, exist_ok=True)
+
+        # Search images based on prompt
+        logger.info(f"Running search for prompt '{prompt}' into '{output_path}'")
+        results = model.search_images(
+            prompt=prompt
+        )
+
+        # Copy matching images (customize this logic as needed)
+        threshold = 0.3  # Example: Only copy images with score above threshold
+        for image_name, score in results:
+            if score > threshold:
+                src = os.path.join(target_folder, image_name)
+                dst = os.path.join(output_path, image_name)
+                shutil.copy(src, dst)
+                logger.info(f"Copied {image_name} with score {score}")
+
+        # Mark processing as completed
+        processing_status[output_folder] = "completed"
+        logger.info(f"Completed processing for {output_folder}")
+
+    except Exception as e:
+        logger.error(f"Failed to process {output_folder}: {e}")
+        processing_status[output_folder] = "error"
+
+
+# ----------------- Processing Status -----------------
+@app.route('/process-status', methods=['GET'])
+def process_status():
+    """API to check processing status for a specific folder."""
+    folder_name = request.args.get('folder')
+    if not folder_name:
+        return jsonify({"error": "Folder name is required."}), 400
+
+    status = processing_status.get(folder_name, "not_started")
+    logger.info(f"Status check for {folder_name}: {status}")
+    return jsonify({"status": status})
+
+
+# ----------------- Run App -----------------
 if __name__ == '__main__':
     app.run(debug=False, host="127.0.0.1", port=5050)

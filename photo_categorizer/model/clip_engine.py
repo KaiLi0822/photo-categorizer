@@ -1,27 +1,34 @@
-# photo_categorizer/clip_engine.py
+# photo_categorizer/model/clip_engine.py
 
 import os
 import numpy as np
 import torch
 from qai_hub_models.models.openai_clip.app import ClipApp
-from qai_hub_models.models.openai_clip.model import MODEL_ASSET_VERSION, MODEL_ID, Clip
-from qai_hub_models.utils.asset_loaders import CachedWebModelAsset, load_image
+from qai_hub_models.models.openai_clip.model import Clip
+from qai_hub_models.utils.asset_loaders import load_image
 from qai_hub_models.utils.display import display_or_save_image
 from photo_categorizer.logger import logger
+from photo_categorizer.model.BaseModelEngine import BaseModelEngine
 
-class ClipEngine:
+
+class ClipEngine(BaseModelEngine):
     def __init__(self):
-        """Load CLIP model once."""
+        super().__init__()  # Initialize BaseModelEngine attributes
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.app = None
+        self.load_model()
+
+    def load_model(self):
+        """Load CLIP model."""
         clip_model = Clip.from_pretrained()
         self.app = ClipApp(clip_model=clip_model)
-        self.images = []  # Hold preprocessed image tensors
-        self.image_names = []  # Hold image file names
-        logger.info(f"[ClipEngine] Model loaded and running on {self.device}")
+        logger.info(f"Model loaded and running on {self.device}")
 
     def load_images_from_directory(self, image_dir):
         """Preload images into memory for future searches."""
-        logger.info(f"[ClipEngine] Loading images from: {image_dir}")
+        logger.info(f"Loading images from: {image_dir}")
+        self.images = []
+        self.image_names = []
 
         for filename in os.listdir(image_dir):
             ext = os.path.splitext(filename)[1].lower()
@@ -31,41 +38,19 @@ class ClipEngine:
                 self.images.append(image_tensor)
                 self.image_names.append(filename)
 
-        logger.info(f"[ClipEngine] Loaded {len(self.images)} images.")
+        logger.info(f"Loaded {len(self.images)} images.")
 
-    def search_images(self, image_dir, image_names, text, output_dir=None, display=False):
+    def search_images(self, prompt):
         """
         Search for images matching the text prompt.
         Returns a list of (image_name, similarity_score).
         """
-        text_tensor = self.app.process_text(text).to(self.device)
-        images = []
-        valid_image_names = []
-
-        for filename in image_names:
-            ext = os.path.splitext(filename)[1].lower()
-            if ext in [".jpg", ".jpeg", ".png"]:
-                image_path = os.path.join(image_dir, filename)
-                image_tensor = self.app.process_image(load_image(image_path)).to(self.device)
-                images.append(image_tensor)
-                valid_image_names.append(filename)
-
-        if not images:
-            print("[ClipEngine] No valid images found.")
-            return []
-
-        images = torch.stack(images).squeeze(1)
+        text_tensor = self.app.process_text(prompt).to(self.device)
+        images = torch.stack(self.images).squeeze(1)
         predictions = self.app.predict_similarity(images, text_tensor).flatten().tolist()
-        results = list(zip(valid_image_names, predictions))
-
-        # Display result (optional)
-        if display:
-            best_match_idx = np.argmax(predictions)
-            selected_image_path = os.path.join(image_dir, valid_image_names[best_match_idx])
-            most_relevant_image = load_image(selected_image_path)
-            display_or_save_image(most_relevant_image, output_dir)
-
+        results = list(zip(self.image_names, predictions))
         return results
+
 
 if __name__ == '__main__':
     clip_engine = ClipEngine()
