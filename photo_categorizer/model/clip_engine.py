@@ -1,12 +1,8 @@
-# photo_categorizer/model/clip_engine.py
-
 import os
-import numpy as np
 import torch
 from qai_hub_models.models.openai_clip.app import ClipApp
 from qai_hub_models.models.openai_clip.model import Clip
 from qai_hub_models.utils.asset_loaders import load_image
-from qai_hub_models.utils.display import display_or_save_image
 from photo_categorizer.logger import logger
 from photo_categorizer.model.BaseModelEngine import BaseModelEngine
 

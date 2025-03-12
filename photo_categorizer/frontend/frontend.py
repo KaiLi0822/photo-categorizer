@@ -1,6 +1,5 @@
 import os
 import sys
-import time
 import subprocess
 import requests
 import atexit
@@ -15,7 +14,7 @@ from photo_categorizer.logger import logger
 from photo_categorizer.model.model_types import ModelTypes
 from photo_categorizer.state import StateTypes
 from PyQt6.QtWidgets import QProgressBar
-
+from photo_categorizer.config import BASE_URL, BACKEND_FILE_PATH, BACKEND_PORT, BACKEND_HOST
 
 
 class PhotoCategorizerApp(QWidget):
@@ -29,51 +28,43 @@ class PhotoCategorizerApp(QWidget):
         self.build_ui()
         self.status = StateTypes.START
 
-        # Backend initialization
-        self.backend_process = self.start_backend()
-
-        # Model initialization
-        self.load_mode()
-
-
-
-
+        # Backend and model are now deferred — GUI will show first
+        QTimer.singleShot(100, self.start_backend)
 
     # ---------------------- Backend Management ----------------------
 
     def start_backend(self):
         """Start Flask backend and ensure it's ready."""
         backend_path = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), '..', 'backend', 'backend.py')
+            os.path.join(os.path.dirname(__file__), '..', BACKEND_FILE_PATH)
         )
         backend_process = subprocess.Popen(
             [sys.executable, backend_path],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
         )
+
+        QTimer.singleShot(500, lambda: self.check_backend_ready())  # Check soon
         atexit.register(self.cleanup_backend, backend_process)
-
-        if not self.wait_for_backend():
-            logger.error("Failed to start backend. Please check backend.py")
-            sys.exit(1)
-
         return backend_process
 
-    def wait_for_backend(self, url='http://127.0.0.1:5050/', timeout=10):
-        """Wait until backend is ready to accept requests."""
-        start_time = time.time()
-        while time.time() - start_time < timeout:
-            try:
-                response = requests.get(url)
-                if response.status_code in (200, 404):  # 404 is acceptable (if root route isn't defined)
-                    self.status = StateTypes.BACKEND_LOADED
-                    logger.info("Backend is up and running!")
-                    return True
-            except requests.ConnectionError:
-                pass
-            time.sleep(1)
-        logger.info("Backend failed to start in time.")
-        return False
+    def check_backend_ready(self):
+        """Check if backend is ready without blocking."""
+        logger.info("Checking backend readiness...")
+        try:
+            response = requests.get(f"{BASE_URL}")
+            if response.status_code in (200, 404):
+                logger.info("Backend is ready!")
+                self.switchState(StateTypes.BACKEND_LOADED)
+                self.load_mode()
+            else:
+                logger.warning("Backend not ready, retrying...")
+                self.switchState(StateTypes.BACKEND_LOADING)
+                QTimer.singleShot(1000, self.check_backend_ready)  # Retry
+        except requests.ConnectionError:
+            logger.warning("Backend connection failed, retrying...")
+            self.switchState(StateTypes.BACKEND_LOADING)
+            QTimer.singleShot(1000, self.check_backend_ready)  # Retry again
 
     def cleanup_backend(self, backend_process):
         """Gracefully terminate backend on app exit and ensure port is freed."""
@@ -88,27 +79,25 @@ class PhotoCategorizerApp(QWidget):
                 backend_process.kill()
 
             # Final check: Is port 5050 still occupied?
-            if self.is_port_in_use(5050):
-                logger.error("Port 5050 is still in use. Backend may not have shut down properly.")
+            if self.is_port_in_use(BACKEND_PORT):
+                logger.error(f"Port {BACKEND_PORT} is still in use. Backend may not have shut down properly.")
             else:
-                logger.info("Backend successfully shut down. Port 5050 is free.")
+                logger.info(f"Backend successfully shut down. Port {BACKEND_PORT} is free.")
 
     def is_port_in_use(self, port):
         """Check if a port is in use."""
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            return s.connect_ex(('127.0.0.1', port)) == 0
+            return s.connect_ex((BACKEND_HOST, port)) == 0
 
     # ---------------------- Model Initialization ----------------------
 
     def load_mode(self):
          # Call backend to load images
         try:
-            response = requests.post("http://127.0.0.1:5050/load-model", json={"model": ModelTypes.CLIP.value})
+            response = requests.post(f"{BASE_URL}load-model", json={"model": ModelTypes.CLIP.value})
             if response.status_code == 200:
-                self.status = StateTypes.MODEL_LOADING
-                self.status_label.setText(self.status.value)
+                self.switchState(StateTypes.MODEL_LOADING)
                 logger.info(f"Backend response: {response.json().get('message')}")
-                # Start polling backend for model status every 2 seconds
                 self.start_polling_model_status()
             else:
                 error_msg = response.json().get('error', 'Unknown error')
@@ -125,17 +114,15 @@ class PhotoCategorizerApp(QWidget):
     def check_model_status(self):
         """Check if model is loaded and update status bar."""
         try:
-            response = requests.get("http://127.0.0.1:5050/model-status")
+            response = requests.get(f"{BASE_URL}/model-status")
             if response.status_code == 200:
                 status = response.json().get("status")
                 self.status_label.setText(status)
                 if status == StateTypes.MODEL_LOADED.value:
                     self.status = StateTypes.MODEL_LOADED
                     self.model_status_timer.stop()  # Stop polling
-
             else:
                 logger.error("Error checking model status.")
-
         except Exception as e:
             logger.error(f"Failed to check model status: {e}")
 
@@ -222,12 +209,11 @@ class PhotoCategorizerApp(QWidget):
         """Send a request to backend to load images from selected folder."""
         logger.info(f"Sending load-images request for folder: {folder}")
         try:
-            response = requests.post("http://127.0.0.1:5050/load-images", json={"target_folder": folder})
+            response = requests.post(f"{BASE_URL}/load-images", json={"target_folder": folder})
             if response.status_code == 200:
                 message = response.json().get('message', "Images loaded.")
                 logger.info(f"Backend response: {message}")
-                self.status = StateTypes.IMAGES_LOADED
-                self.status_label.setText(self.status.value)
+                self.switchState(StateTypes.IMAGES_LOADED)
             else:
                 error_msg = response.json().get('error', 'Unknown error')
                 logger.error(f"Backend error: {error_msg}")
@@ -312,7 +298,6 @@ class PhotoCategorizerApp(QWidget):
         self.progress_bar.setRange(0, len(self.outputs))  # Total output folders
         self.progress_bar.setValue(0)
         self.layout().addWidget(self.progress_bar)
-        self.status_label.setText("Starting categorization...")
 
         # Step 4: Initialize index and start first job
         self.current_output_index = 0
@@ -331,7 +316,7 @@ class PhotoCategorizerApp(QWidget):
 
         # Step 4.1: Trigger the job
         try:
-            response = requests.post("http://127.0.0.1:5050/start-process", json={
+            response = requests.post(f"{BASE_URL}start-process", json={
                 "target_folder": self.target_folder,
                 "output": output
             })
@@ -354,19 +339,17 @@ class PhotoCategorizerApp(QWidget):
 
         def check_status():
             try:
-                response = requests.get(f"http://127.0.0.1:5050/process-status?folder={folder_name}")
+                response = requests.get(f"{BASE_URL}process-status?folder={folder_name}")
                 if response.status_code == 200:
                     status = response.json().get('status')
                     logger.info(f"Status for {folder_name}: {status}")
 
                     if status == "completed":
                         # Step 4.3: Move to next output
-                        self.status_label.setText(f"Completed: {folder_name}")
                         self.progress_bar.setValue(self.current_output_index + 1)
                         self.move_to_next_output()
 
                     elif status == "error":
-                        self.status_label.setText(f"Error processing {folder_name}")
                         self.progress_bar.setValue(self.current_output_index + 1)
                         self.move_to_next_output()
                         logger.error(self, "Error", f"Error in {folder_name}: {response.json().get('error')}")
@@ -393,8 +376,14 @@ class PhotoCategorizerApp(QWidget):
 
     def finish_categorization(self):
         """Handle finishing of all outputs."""
-        self.status_label.setText("Categorization completed!")
-        self.progress_bar.setValue(len(self.outputs))  # Full progress bar
+
+        self.switchState(StateTypes.CATEGORIZED)
+
+        # Optional: Ask to open folder
+        choice = QMessageBox.question(self, "Open Folder", "Open target folder now?",
+                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if choice == QMessageBox.StandardButton.Yes:
+            os.system(f'open "{self.target_folder}"')  # MacOS, use 'xdg-open' for Linux
 
         # Step 5: Reset interface
         self.layout().removeWidget(self.progress_bar)
@@ -405,13 +394,12 @@ class PhotoCategorizerApp(QWidget):
         for _, _, frame in self.output_fields:
             frame.deleteLater()
         self.output_fields.clear()
-        self.status = StateTypes.MODEL_LOADED  # Reset status
+        self.add_output_input()
+        self.switchState(StateTypes.MODEL_LOADED)
 
-        # Optional: Ask to open folder
-        choice = QMessageBox.question(self, "Open Folder", "Open target folder now?",
-                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        if choice == QMessageBox.StandardButton.Yes:
-            os.system(f'open "{self.target_folder}"')  # MacOS, use 'xdg-open' for Linux
+    def switchState(self, state: StateTypes):
+        self.status = state
+        self.status_label.setText(state.value)
 
 
 # ---------------------- Main App Runner ----------------------

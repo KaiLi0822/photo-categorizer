@@ -4,16 +4,15 @@ import shutil
 from photo_categorizer.logger import logger
 import threading
 from photo_categorizer.model.model_factory import ModelFactory
-from photo_categorizer.model.model_types import ModelTypes
 from photo_categorizer.state import StateTypes
 from photo_categorizer.model.BaseModelEngine import BaseModelEngine
-
+from photo_categorizer.config import BACKEND_PORT, BACKEND_HOST, THRESHOLD
 app = Flask(__name__)
 
 model: BaseModelEngine = None  # Lazy initialization
 
 # Dictionary to store status of each folder being processed
-processing_status = {}  # Example: { "dogs": "processing", "cats": "completed" }
+processing_status = {}
 
 
 # ----------------- Load Model -----------------
@@ -116,9 +115,8 @@ def process_images_async(target_folder, output_folder, prompt):
         )
 
         # Copy matching images (customize this logic as needed)
-        threshold = 0.3  # Example: Only copy images with score above threshold
         for image_name, score in results:
-            if score > threshold:
+            if score > THRESHOLD:
                 src = os.path.join(target_folder, image_name)
                 dst = os.path.join(output_path, image_name)
                 shutil.copy(src, dst)
@@ -148,4 +146,4 @@ def process_status():
 
 # ----------------- Run App -----------------
 if __name__ == '__main__':
-    app.run(debug=False, host="127.0.0.1", port=5050)
+    app.run(debug=False, host=BACKEND_HOST, port=BACKEND_PORT)
