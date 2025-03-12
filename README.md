@@ -100,9 +100,24 @@ python photo_categorizer/main.py
 ### 3. **Optional: Package the App**
 
 Using PyInstaller:
+- Windows
 
 ```bash
-pyinstaller --noconsole --windowed --onefile photo_categorizer/main.py
+pyinstaller --windowed --onefile --name "PhotoCategorizer" ^
+  --add-data "photo_categorizer\\frontend\\styles.qss;photo_categorizer/frontend" ^
+  --add-data "photo_categorizer\\backend;photo_categorizer/backend" ^
+  --add-data "photo_categorizer\\model;photo_categorizer/model" ^
+  photo_categorizer\\main.py
+```
+- Mac
+
+```bash
+pyinstaller --windowed --onefile --name "PhotoCategorizer" \
+  --add-data "photo_categorizer/frontend/styles.qss:photo_categorizer/frontend" \
+  --add-data "photo_categorizer/backend:photo_categorizer/backend" \
+  --add-data "photo_categorizer/model:photo_categorizer/model" \
+  photo_categorizer/main.py
+
 ```
 
 

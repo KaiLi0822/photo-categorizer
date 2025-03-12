@@ -35,9 +35,7 @@ class PhotoCategorizerApp(QWidget):
 
     def start_backend(self):
         """Start Flask backend and ensure it's ready."""
-        backend_path = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), '..', BACKEND_FILE_PATH)
-        )
+        backend_path = self.resource_path(os.path.join('backend', 'backend.py'))
         backend_process = subprocess.Popen(
             [sys.executable, backend_path],
             stdout=subprocess.PIPE,
@@ -170,9 +168,14 @@ class PhotoCategorizerApp(QWidget):
         self.status_label = QLabel()
         layout.addWidget(self.status_label)
 
+    def resource_path(self, relative_path):
+        """Get absolute path to resource, works for dev and PyInstaller."""
+        base_path = getattr(sys, '_MEIPASS', os.path.abspath("."))
+        return os.path.join(base_path, relative_path)
+
     def load_stylesheet(self):
-        """Load QSS stylesheet for styling."""
-        qss_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'styles.qss')
+        """Load QSS stylesheet for styling (PyInstaller safe)."""
+        qss_path = self.resource_path(os.path.join('frontend', 'styles.qss'))
         if os.path.exists(qss_path):
             with open(qss_path, "r") as file:
                 return file.read()

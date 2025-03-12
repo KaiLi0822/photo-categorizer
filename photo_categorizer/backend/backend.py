@@ -21,7 +21,7 @@ def load_model():
     """API to load model."""
     data = request.json
     model_name = data.get('model')
-
+    logger.info("Received request to load model.")
     # Start model loading in a separate thread
     threading.Thread(target=load_model_async, args=(model_name,), daemon=True).start()
     return jsonify({"message": "Model loading started in background."})
@@ -146,4 +146,6 @@ def process_status():
 
 # ----------------- Run App -----------------
 if __name__ == '__main__':
+    logger.info(f"Starting backend on {BACKEND_HOST}:{BACKEND_PORT}...")
+    logger.info("Initializing Flask backend...")
     app.run(debug=False, host=BACKEND_HOST, port=BACKEND_PORT)
