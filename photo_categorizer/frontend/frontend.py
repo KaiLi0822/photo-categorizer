@@ -15,7 +15,7 @@ from photo_categorizer.logger import logger
 from photo_categorizer.model.model_types import ModelTypes
 from photo_categorizer.state import StateTypes
 from PyQt6.QtWidgets import QProgressBar
-from photo_categorizer.config import BASE_URL, BACKEND_FILE_PATH, BACKEND_PORT, BACKEND_HOST
+from photo_categorizer.config import BASE_URL, BACKEND_PORT, BACKEND_HOST
 
 QSS_STYLE = """
 QWidget {
