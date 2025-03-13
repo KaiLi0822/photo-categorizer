@@ -2,9 +2,8 @@ import os
 import sys
 import subprocess
 import requests
-import atexit
 import socket
-import stat
+import platform
 
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QLabel, QHBoxLayout, QPushButton,
@@ -52,6 +51,7 @@ class PhotoCategorizerApp(QWidget):
 
         # Backend and model are now deferred — GUI will show first
         QTimer.singleShot(100, self.start_backend)
+        QApplication.instance().aboutToQuit.connect(self.cleanup_backend)
 
     # ---------------------- Backend Management ----------------------
 
@@ -59,29 +59,24 @@ class PhotoCategorizerApp(QWidget):
 
         """Start Flask backend and ensure it's ready."""
 
-        # --- Run backend in local development mode (using Python script) ---
-        # This is used when running the app locally (e.g., during development in IDE).
-        backend_path = self.resource_path(os.path.join('backend', 'backend.py'))
-        backend_process = subprocess.Popen(
-            [sys.executable, backend_path],
+        if getattr(sys, 'frozen', False):
+            # Packaged mode
+            backend_path = self.resource_path(os.path.join('backend_executable', 'backend_executable.exe') if platform.system() == 'Windows' else 'backend_executable/backend_executable')
+        else:
+            # Development mode
+            backend_path = self.resource_path(os.path.join('backend', 'backend.py'))
+
+        # Windows-specific creation flag
+        creationflags = subprocess.CREATE_NEW_PROCESS_GROUP if platform.system() == 'Windows' else 0
+
+        self.backend_process = subprocess.Popen(
+            [sys.executable, backend_path] if backend_path.endswith('.py') else [backend_path],
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            stderr=subprocess.PIPE,
+            creationflags=creationflags  # Important on Windows
         )
 
-        # --- Run backend in packaged app mode (using compiled executable) ---
-        # Uncomment this block when running the packaged application.
-        # Ensure that the backend executable has proper permissions to run.
-        # backend_path = self.resource_path('backend_executable/backend_executable')  # Path to backend executable
-        # os.chmod(backend_path, 0o755)  # Ensure executable permission (rwxr-xr-x)
-        # backend_process = subprocess.Popen(
-        #     [backend_path],
-        #     stdout=subprocess.PIPE,
-        #     stderr=subprocess.PIPE
-        # )
-
         QTimer.singleShot(500, lambda: self.check_backend_ready())  # Check soon
-        atexit.register(self.cleanup_backend, backend_process)
-        return backend_process
 
     def check_backend_ready(self):
         """Check if backend is ready without blocking."""
@@ -101,17 +96,17 @@ class PhotoCategorizerApp(QWidget):
             self.switchState(StateTypes.BACKEND_LOADING)
             QTimer.singleShot(1000, self.check_backend_ready)  # Retry again
 
-    def cleanup_backend(self, backend_process):
+    def cleanup_backend(self):
         """Gracefully terminate backend on app exit and ensure port is freed."""
-        if backend_process:
+        if self.backend_process:
             logger.info("Shutting down backend...")
-            backend_process.terminate()
+            self.backend_process.terminate()
             try:
-                backend_process.wait(timeout=5)
+                self.backend_process.wait(timeout=5)
                 logger.info("Backend process terminated.")
             except subprocess.TimeoutExpired:
                 logger.warning("Force killing backend...")
-                backend_process.kill()
+                self.backend_process.kill()
 
             # Final check: Is port 5050 still occupied?
             if self.is_port_in_use(BACKEND_PORT):
