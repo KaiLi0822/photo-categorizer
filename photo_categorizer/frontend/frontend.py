@@ -409,7 +409,16 @@ class PhotoCategorizerApp(QWidget):
         choice = QMessageBox.question(self, "Open Folder", "Open target folder now?",
                                       QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if choice == QMessageBox.StandardButton.Yes:
-            os.system(f'open "{self.target_folder}"')  # MacOS, use 'xdg-open' for Linux
+            # Cross-platform way to open folder
+            folder_path = self.target_folder
+            system_platform = platform.system()
+
+            if system_platform == "Windows":
+                os.system(f'explorer "{folder_path}"')
+            elif system_platform == "Darwin":  # macOS
+                os.system(f'open "{folder_path}"')
+            else:  # Linux and others
+                os.system(f'xdg-open "{folder_path}"')
 
         # Step 5: Reset interface
         self.layout().removeWidget(self.progress_bar)
