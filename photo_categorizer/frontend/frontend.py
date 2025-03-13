@@ -147,9 +147,8 @@ class PhotoCategorizerApp(QWidget):
             response = requests.get(f"{BASE_URL}/model-status")
             if response.status_code == 200:
                 status = response.json().get("status")
-                self.status_label.setText(status)
                 if status == StateTypes.MODEL_LOADED.value:
-                    self.status = StateTypes.MODEL_LOADED
+                    self.switchState(StateTypes.MODEL_LOADED)
                     self.model_status_timer.stop()  # Stop polling
             else:
                 logger.error("Error checking model status.")
@@ -223,11 +222,11 @@ class PhotoCategorizerApp(QWidget):
     def check_status_and_load_images(self):
         """Check if model is loaded and trigger image loading if ready."""
         try:
-            if self.status == StateTypes.MODEL_LOADED:
+            if self.status == StateTypes.MODEL_LOADED or self.status == StateTypes.IMAGES_LOADED:
                 self.status_check_timer.stop()  # Stop polling
                 self.load_images(self.target_entry.text().strip())  # Trigger image load
             else:
-                logger.info("Status: Model is loading.")
+                logger.info("Status: Model is loading or previous images are loading.")
         except Exception as e:
             logger.error(f"Failed to check status: {e}")
 
