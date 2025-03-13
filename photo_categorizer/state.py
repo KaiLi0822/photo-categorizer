@@ -7,6 +7,7 @@ class StateTypes(Enum):
     MODEL_LOADING = "Model Loading"
     MODEL_LOADED = "Model Loaded"
     IMAGES_LOADED = "Images Loaded"
+    IMAGES_LOADING = "Images Loading"
     CATEGORIZING = "Categorizing"
     CATEGORIZED = "Categorized"
 

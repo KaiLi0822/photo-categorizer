@@ -47,7 +47,7 @@ class PhotoCategorizerApp(QWidget):
         self.setGeometry(200, 200, 800, 600)
         self.output_fields = []
         self.build_ui()
-        self.status = StateTypes.START
+        self.state = StateTypes.START
 
         # Backend and model are now deferred — GUI will show first
         QTimer.singleShot(100, self.start_backend)
@@ -196,8 +196,8 @@ class PhotoCategorizerApp(QWidget):
         layout.addWidget(start_button)
 
         # Status bar
-        self.status_label = QLabel()
-        layout.addWidget(self.status_label)
+        self.state_label = QLabel()
+        layout.addWidget(self.state_label)
 
     def resource_path(self, relative_path):
         """Get absolute path to resource, works for dev and PyInstaller."""
@@ -206,6 +206,9 @@ class PhotoCategorizerApp(QWidget):
 
     def select_folder(self):
         """Select the target folder and notify backend to load images."""
+        if self.state == StateTypes.IMAGES_LOADING:
+            QMessageBox.warning(self, "Warning", "Loading images...")
+            return
         folder = QFileDialog.getExistingDirectory(self, "Select Target Directory")
         if folder:
             self.target_entry.setText(folder)
@@ -215,6 +218,9 @@ class PhotoCategorizerApp(QWidget):
 
     def start_loading_images(self):
         """Start polling backend for model status every 2 seconds until ready to load images."""
+        if hasattr(self, 'status_check_timer') and self.status_check_timer.isActive():
+            self.status_check_timer.stop()
+            self.status_check_timer.deleteLater()  # Clean up the old timer
         self.status_check_timer = QTimer(self)
         self.status_check_timer.timeout.connect(self.check_status_and_load_images)
         self.status_check_timer.start(2000)  # Poll every 2 seconds
@@ -222,13 +228,14 @@ class PhotoCategorizerApp(QWidget):
     def check_status_and_load_images(self):
         """Check if model is loaded and trigger image loading if ready."""
         try:
-            if self.status == StateTypes.MODEL_LOADED or self.status == StateTypes.IMAGES_LOADED:
+            if self.state == StateTypes.MODEL_LOADED or self.state == StateTypes.IMAGES_LOADED:
                 self.status_check_timer.stop()  # Stop polling
+                self.switchState(StateTypes.IMAGES_LOADING)
                 self.load_images(self.target_entry.text().strip())  # Trigger image load
             else:
-                logger.info("Status: Model is loading or previous images are loading.")
+                logger.info("State: Model is loading or previous images are loading.")
         except Exception as e:
-            logger.error(f"Failed to check status: {e}")
+            logger.error(f"Failed to check state: {e}")
 
     def load_images(self, folder):
         """Send a request to backend to load images from selected folder."""
@@ -303,7 +310,7 @@ class PhotoCategorizerApp(QWidget):
             QMessageBox.warning(self, "Warning", "Please select a target folder.")
             return
 
-        if self.status != StateTypes.IMAGES_LOADED:
+        if self.state != StateTypes.IMAGES_LOADED:
             QMessageBox.warning(self, "Warning", "Images are not loaded yet. Please try again later.")
             return
 
@@ -335,7 +342,7 @@ class PhotoCategorizerApp(QWidget):
 
         output = self.outputs[self.current_output_index]
         logger.info(f"Starting processing for: {output['folder_name']}")
-        self.status_label.setText(f"Processing folder: {output['folder_name']}")
+        self.state_label.setText(f"Processing folder: {output['folder_name']}")
 
         # Step 4.1: Trigger the job
         try:
@@ -430,8 +437,8 @@ class PhotoCategorizerApp(QWidget):
         self.switchState(StateTypes.MODEL_LOADED)
 
     def switchState(self, state: StateTypes):
-        self.status = state
-        self.status_label.setText(state.value)
+        self.state = state
+        self.state_label.setText(state.value)
 
 
 # ---------------------- Main App Runner ----------------------
