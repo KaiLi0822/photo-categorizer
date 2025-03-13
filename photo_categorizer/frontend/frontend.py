@@ -300,8 +300,7 @@ class PhotoCategorizerApp(QWidget):
         """Start categorization process with progress tracking for each output folder."""
 
         # Step 1: Check if images are loaded
-        target_folder = self.target_entry.text().strip()
-        if not target_folder:
+        if not self.target_entry.text().strip():
             QMessageBox.warning(self, "Warning", "Please select a target folder.")
             return
 
@@ -310,7 +309,6 @@ class PhotoCategorizerApp(QWidget):
             return
 
         # Step 2: Collect folders/prompts
-        self.target_folder = target_folder
         self.outputs = [
             {"folder_name": fn.text().strip(), "prompt": pr.text().strip()}
             for fn, pr, _ in self.output_fields if fn.text().strip() and pr.text().strip()
@@ -343,7 +341,7 @@ class PhotoCategorizerApp(QWidget):
         # Step 4.1: Trigger the job
         try:
             response = requests.post(f"{BASE_URL}start-process", json={
-                "target_folder": self.target_folder,
+                "target_folder": self.target_entry.text().strip(),
                 "output": output
             })
             if response.status_code == 200:
@@ -410,7 +408,7 @@ class PhotoCategorizerApp(QWidget):
                                       QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
         if choice == QMessageBox.StandardButton.Yes:
             # Cross-platform way to open folder
-            folder_path = self.target_folder
+            folder_path = self.target_entry.text().strip()
             system_platform = platform.system()
 
             if system_platform == "Windows":
