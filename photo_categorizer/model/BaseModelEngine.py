@@ -22,6 +22,14 @@ class BaseModelEngine(ABC):
         """Preload images from directory. Must be implemented by subclass."""
         pass
 
+    @abstractmethod
+    def search_images(self, prompt, batch_size):
+        pass
+
+    @abstractmethod
+    def auto_categorize_image(self):
+        pass
+
     # @abstractmethod
     # def search_images(self, image_dir, image_names, text, output_dir=None, display=False):
     #     """Search images by text. Must be implemented by subclass."""

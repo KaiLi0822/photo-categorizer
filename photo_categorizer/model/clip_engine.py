@@ -1,10 +1,14 @@
 import os
+from collections import defaultdict
+
 import torch
 from qai_hub_models.models.openai_clip.app import ClipApp
 from qai_hub_models.models.openai_clip.model import Clip
 from qai_hub_models.utils.asset_loaders import load_image
 from photo_categorizer.logger import logger
 from photo_categorizer.model.BaseModelEngine import BaseModelEngine
+from photo_categorizer.config import FIXED_CATEGORIES, MAX_TOTAL_CATEGORIES, THRESHOLD
+import numpy as np
 
 
 class ClipEngine(BaseModelEngine):
@@ -23,29 +27,108 @@ class ClipEngine(BaseModelEngine):
     def load_images_from_directory(self, image_dir):
         """Preload images into memory for future searches."""
         logger.info(f"Loading images from: {image_dir}")
-        self.images = []
-        self.image_names = []
+        self.image_dict = {}
 
         for filename in os.listdir(image_dir):
             ext = os.path.splitext(filename)[1].lower()
             if ext in [".jpg", ".jpeg", ".png"]:
                 image_path = os.path.join(image_dir, filename)
                 image_tensor = self.app.process_image(load_image(image_path)).to(self.device)
-                self.images.append(image_tensor)
-                self.image_names.append(filename)
+                self.image_dict[filename] = image_tensor
 
-        logger.info(f"Loaded {len(self.images)} images.")
+        logger.info(f"Loaded {len(self.image_dict)} images.")
 
-    def search_images(self, prompt):
+    def search_images(self, prompt, batch_size=20):
         """
-        Search for images matching the text prompt.
+        Search for images matching the text prompt in batches.
         Returns a list of (image_name, similarity_score).
         """
         text_tensor = self.app.process_text(prompt).to(self.device)
-        images = torch.stack(self.images).squeeze(1)
-        predictions = self.app.predict_similarity(images, text_tensor).flatten().tolist()
-        results = list(zip(self.image_names, predictions))
+        image_items = list(self.image_dict.items())  # Convert to list of (filename, tensor)
+        image_tensors = torch.stack([img for _, img in image_items]).squeeze(1)
+        image_names = [name for name, _ in image_items]
+
+        results = []
+        num_images = image_tensors.shape[0]
+
+        for i in range(0, num_images, batch_size):
+            batch_images = image_tensors[i:i + batch_size]
+            predictions = self.app.predict_similarity(batch_images, text_tensor).flatten().tolist()
+            batch_results = list(zip(image_names[i:i + batch_size], predictions))
+            results.extend(batch_results)
+
         return results
+
+    def _bpe_cluster(self, features, max_clusters):
+        """BPE-like clustering with cosine similarity"""
+        # Convert to unit vectors for cosine similarity
+        features = features / np.linalg.norm(features, axis=1, keepdims=True)
+
+        # Initialize each image as its own cluster
+        clusters = [{"indices": [i], "mean": features[i]} for i in range(features.shape[0])]
+
+        while len(clusters) > max_clusters:
+            # Compute pairwise similarities
+            sim_matrix = np.zeros((len(clusters), len(clusters)))
+            for i in range(len(clusters)):
+                for j in range(i + 1, len(clusters)):
+                    sim = clusters[i]["mean"] @ clusters[j]["mean"].T
+                    sim_matrix[i, j] = sim
+
+            # Find most similar pair
+            i, j = np.unravel_index(np.argmax(sim_matrix), sim_matrix.shape)
+            if i > j: i, j = j, i
+
+            # Merge clusters
+            merged = {
+                "indices": clusters[i]["indices"] + clusters[j]["indices"],
+                "mean": (clusters[i]["mean"] * len(clusters[i]["indices"]) +
+                         (clusters[j]["mean"] * len(clusters[j]["indices"]))) /
+                        (len(clusters[i]["indices"]) + len(clusters[j]["indices"]))
+            }
+
+            # Update cluster list
+            clusters = [c for idx, c in enumerate(clusters) if idx not in (i, j)] + [merged]
+
+        return clusters
+
+    def auto_categorize(self):
+        fixed_members = defaultdict(list)
+        fixed_names = defaultdict(list)
+        for category in FIXED_CATEGORIES:
+            members = zip(self.image_names, self.search_images(category))
+            fixed_members[category] = [m[1][0] for m in members if m[1][1] > THRESHOLD]
+            fixed_names[category] = [m[0] for m in members if m[1][1] > THRESHOLD]
+
+
+        remaining_features = []
+        remaining_names = self.image_names
+        for k, v in fixed_names.items():
+            remaining_names = list(set(remaining_names) - set(v))
+
+        for name in remaining_names:
+            remaining_features.append(self.app.process_image(self.image_names[name]))
+
+        # 3. Calculate remaining cluster allowance
+        remaining_clusters = MAX_TOTAL_CATEGORIES - len(FIXED_CATEGORIES)
+        if remaining_clusters <= 0:
+            print("Warning: Fixed categories already reach maximum allowed")
+            remaining_clusters = 1
+
+        # 4. BPE-like clustering for remaining images
+        if len(remaining_features) > 0:
+            remaining_features = np.vstack(remaining_features)
+            clusters = self._bpe_cluster(remaining_features, remaining_clusters)
+
+            # Create cluster names
+            cluster_labels = ["Other" for i in range(len(clusters))]
+
+            # Assign images to clusters
+            for cluster, label in zip(clusters, cluster_labels):
+                fixed_names[label] = [remaining_names[i] for i in cluster["indices"]]
+
+        return fixed_names
+
 
 
 if __name__ == '__main__':

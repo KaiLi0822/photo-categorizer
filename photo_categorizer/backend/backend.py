@@ -6,7 +6,7 @@ import threading
 from photo_categorizer.model.model_factory import ModelFactory
 from photo_categorizer.state import StateTypes
 from photo_categorizer.model.BaseModelEngine import BaseModelEngine
-from photo_categorizer.config import BACKEND_PORT, BACKEND_HOST, THRESHOLD
+from photo_categorizer.config import BACKEND_PORT, BACKEND_HOST, THRESHOLD, FIXED_CATEGORIES
 app = Flask(__name__)
 
 model: BaseModelEngine = None  # Lazy initialization
@@ -131,6 +131,60 @@ def process_images_async(target_folder, output_folder, prompt):
         processing_status[output_folder] = "error"
 
 
+@app.route('/auto_categorize', methods=['POST'])
+def auto_categorize():
+    """API to start processing one output folder with a given prompt."""
+    global model
+    if model is None:
+        return jsonify({"error": "Model is not loaded. Please load the model first."}), 400
+
+    data = request.json
+    target_folder = data.get('target_folder')
+
+    if not target_folder or not os.path.isdir(target_folder):
+        return jsonify({"error": "Invalid target folder."}), 400
+
+    # Set status to "processing"
+    processing_status["auto"] = "processing"
+    logger.info(f"Started processing for auto categorizer")
+
+    # Start actual processing in a separate thread
+    threading.Thread(
+        target=process_images_async,
+        args=(target_folder),
+        daemon=True
+    ).start()
+
+    return jsonify({"message": f"Processing started for auto categorizer."})
+
+
+def auto_categorize_async(target_folder):
+    """Process images and move matches to output folder."""
+    global model, processing_status
+    try:
+        for output_folder in os.listdir(FIXED_CATEGORIES) + ["Other"]:
+             output_path = os.path.join(target_folder, output_folder)
+             os.makedirs(output_path, exist_ok=True)
+
+        # Search images based on prompt
+        logger.info(f"Running auto categorizer for {target_folder}")
+        results = model.auto_categorize_image()
+
+        # Copy matching images (customize this logic as needed)
+
+        for k, v in results:
+            for image_name in v:
+                src = os.path.join(target_folder, image_name)
+                dst = os.path.join(os.path.join(target_folder, str(k)), image_name)
+                shutil.copy(src, dst)
+
+        # Mark processing as completed
+        processing_status["auto"] = "completed"
+        logger.info(f"Completed processing for {target_folder}")
+
+    except Exception as e:
+        logger.error(f"Failed to process {target_folder}: {e}")
+        processing_status["auto"] = "error"
 # ----------------- Processing Status -----------------
 @app.route('/process-status', methods=['GET'])
 def process_status():
@@ -142,6 +196,8 @@ def process_status():
     status = processing_status.get(folder_name, "not_started")
     logger.info(f"Status check for {folder_name}: {status}")
     return jsonify({"status": status})
+
+
 
 
 # ----------------- Run App -----------------

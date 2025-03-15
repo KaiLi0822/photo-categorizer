@@ -10,3 +10,7 @@ BACKEND_FILE_PATH:str = "backend/backend.py"  # Relative path to backend file
 
 # Model Score
 THRESHOLD = 22
+
+FIXED_CATEGORIES = ["pets", "people", "food", "landscape"]
+MAX_TOTAL_CATEGORIES = 5
+
