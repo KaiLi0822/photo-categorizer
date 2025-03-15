@@ -209,6 +209,9 @@ class PhotoCategorizerApp(QWidget):
         if self.state == StateTypes.IMAGES_LOADING:
             QMessageBox.warning(self, "Warning", "Loading images...")
             return
+        if self.state == StateTypes.CATEGORIZING:
+            QMessageBox.warning(self, "Warning", "Categorizing...")
+            return
         folder = QFileDialog.getExistingDirectory(self, "Select Target Directory")
         if folder:
             self.target_entry.setText(folder)
