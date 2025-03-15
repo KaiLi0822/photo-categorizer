@@ -114,32 +114,6 @@ Using PyInstaller:
     .\backend_executable
     ```
     
-  - Change the code(Line 62 - 80 in frontend.py)
-
-    Inside frontend.py, adjust the backend launching logic depending on whether you are running locally for development or as a packaged app:
-    
-    ```python
-    # --- Run backend in local development mode (using Python script) ---
-    # This is used when running the app locally (e.g., during development in IDE).
-    backend_path = self.resource_path(os.path.join('backend', 'backend.py'))
-    backend_process = subprocess.Popen(
-        [sys.executable, backend_path],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
-    )
-    
-    # --- Run backend in packaged app mode (using compiled executable) ---
-    # Uncomment this block when running the packaged application.
-    # Ensure that the backend executable has proper permissions to run.
-    # backend_path = self.resource_path('backend_executable/backend_executable')  # Path to backend executable
-    # os.chmod(backend_path, 0o755)  # Ensure executable permission (rwxr-xr-x)
-    # backend_process = subprocess.Popen(
-    #     [backend_path],
-    #     stdout=subprocess.PIPE,
-    #     stderr=subprocess.PIPE
-    # )
-    ```
-    
   - Package the app
 
     ```bash
@@ -162,32 +136,6 @@ Using PyInstaller:
     ```bash
     chmod +x ./backend_executable
     ./backend_executable
-    ```
-    
-  - Change the code(Line 62 - 80 in frontend.py)
-
-    Inside frontend.py, adjust the backend launching logic depending on whether you are running locally for development or as a packaged app:
-    
-    ```python
-    # --- Run backend in local development mode (using Python script) ---
-    # This is used when running the app locally (e.g., during development in IDE).
-    backend_path = self.resource_path(os.path.join('backend', 'backend.py'))
-    backend_process = subprocess.Popen(
-        [sys.executable, backend_path],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
-    )
-    
-    # --- Run backend in packaged app mode (using compiled executable) ---
-    # Uncomment this block when running the packaged application.
-    # Ensure that the backend executable has proper permissions to run.
-    # backend_path = self.resource_path('backend_executable/backend_executable')  # Path to backend executable
-    # os.chmod(backend_path, 0o755)  # Ensure executable permission (rwxr-xr-x)
-    # backend_process = subprocess.Popen(
-    #     [backend_path],
-    #     stdout=subprocess.PIPE,
-    #     stderr=subprocess.PIPE
-    # )
     ```
     
   - Package the app
