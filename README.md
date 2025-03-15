@@ -102,10 +102,7 @@ Using PyInstaller:
   - Package the backend as an executable file
 
     ```bash
-    pyinstaller --onefile --name backend_executable ^
-    --hidden-import ftfy --hidden-import regex ^
-    --add-data "path\\to\\qai_hub_models\\asset_bases.yaml:qai_hub_models" ^
-    photo_categorizer\\backend\\backend.py
+    pyinstaller --onefile --name backend_executable --hidden-import ftfy --hidden-import regex --add-data "path\\to\\qai_hub_models\\asset_bases.yaml:qai_hub_models" photo_categorizer\\backend\\backend.py
     ```
 
   - Test the backend independently
@@ -117,9 +114,7 @@ Using PyInstaller:
   - Package the app
 
     ```bash
-    pyinstaller --windowed --onefile --name PhotoCategorizer ^
-    --add-binary "dist\\backend_executable.exe;backend_executable" ^
-    photo_categorizer\\main.py
+    pyinstaller --windowed --onefile --name PhotoCategorizer --add-binary "dist\\backend_executable.exe;backend_executable" photo_categorizer\\main.py
     ```
 - Mac
   - Package the backend as an executable file

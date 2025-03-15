@@ -67,7 +67,7 @@ class PhotoCategorizerApp(QWidget):
             backend_path = self.resource_path(os.path.join('backend', 'backend.py'))
 
         # Windows-specific creation flag
-        creationflags = subprocess.CREATE_NEW_PROCESS_GROUP if platform.system() == 'Windows' else 0
+        creationflags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW if platform.system() == 'Windows' else 0
 
         self.backend_process = subprocess.Popen(
             [sys.executable, backend_path] if backend_path.endswith('.py') else [backend_path],
