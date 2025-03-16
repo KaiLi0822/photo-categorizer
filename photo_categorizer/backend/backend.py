@@ -138,13 +138,15 @@ def auto_categorize():
     if model is None:
         return jsonify({"error": "Model is not loaded. Please load the model first."}), 400
 
+
     data = request.json
     target_folder = data.get('target_folder')
 
     if not target_folder or not os.path.isdir(target_folder):
         return jsonify({"error": "Invalid target folder."}), 400
 
-    # Set status to "processing"
+    model.load_images_from_directory(target_folder)
+
     processing_status["auto"] = "processing"
     logger.info(f"Started processing for auto categorizer")
 
