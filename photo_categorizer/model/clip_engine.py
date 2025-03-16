@@ -28,7 +28,6 @@ class ClipEngine(BaseModelEngine):
     def load_images_from_directory(self, image_dir):
         """Preload images into memory for future searches."""
         logger.info(f"Loading images from: {image_dir}")
-        self.image_dict = {}
 
         for filename in os.listdir(image_dir):
             ext = os.path.splitext(filename)[1].lower()

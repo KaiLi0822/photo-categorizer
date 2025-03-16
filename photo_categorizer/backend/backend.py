@@ -112,14 +112,14 @@ def process_images_async(target_folder, selected_text, output_folder, prompt):
         output_path = os.path.join(target_folder, selected_text, output_folder)
         os.makedirs(output_path, exist_ok=True)
 
+        model.load_images_from_directory(os.path.join(target_folder, selected_text))
+        logger.info(f"Loading images from '{os.path.join(target_folder, selected_text)}'")
         # Search images based on prompt
         logger.info(f"Running search for prompt '{prompt}' into '{output_path}'")
         results = model.search_images(
             prompt=prompt
         )
 
-        model.load_images_from_directory(target_folder)
-        logger.info(f"Loading images from '{target_folder}'")
         # Copy matching images (customize this logic as needed)
         for image_name, score in results:
             if score > THRESHOLD:
