@@ -109,11 +109,12 @@ def process_images_async(target_folder, selected_text, output_folder, prompt):
     selected_text_folder_name = selected_text + "_" + output_folder
     try:
         selected_text_folder_name = selected_text + "_" + output_folder
-        output_path = os.path.join(target_folder, selected_text, output_folder)
+        output_path = os.sep.join([target_folder, selected_text, output_folder])
         os.makedirs(output_path, exist_ok=True)
 
-        model.load_images_from_directory(os.path.join(target_folder, selected_text))
-        logger.info(f"Loading images from '{os.path.join(target_folder, selected_text)}'")
+        path_new = os.sep.join([target_folder, selected_text])
+        model.load_images_from_directory(path_new)
+        logger.info(f"Loading images from '{path_new}'")
         # Search images based on prompt
         logger.info(f"Running search for prompt '{prompt}' into '{output_path}'")
         results = model.search_images(

@@ -133,6 +133,7 @@ class PhotoCategorizerApp(QWidget):
             # Final check: Is port 5050 still occupied?
             if self.is_port_in_use(BACKEND_PORT):
                 logger.error(f"Port {BACKEND_PORT} is still in use.")
+                self.kill_process_on_port(BACKEND_PORT)
             else:
                 logger.info(f"Backend successfully shut down. Port {BACKEND_PORT} is free.")
 
@@ -153,6 +154,32 @@ class PhotoCategorizerApp(QWidget):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             return s.connect_ex((BACKEND_HOST, port)) == 0
 
+    def kill_process_on_port(port):
+        """Find and kill the process using the given port on Windows."""
+        if platform.system() == "Windows":
+            try:
+                # Run netstat and find process using the port
+                result = subprocess.check_output(
+                    f'netstat -ano | findstr :{port}',
+                    shell=True
+                ).decode()
+                logger.info(f"netstat result for port {port}: {result}")
+
+                # Extract PID from netstat output
+                lines = result.strip().split('\n')
+                for line in lines:
+                    parts = line.split()
+                    if len(parts) >= 5 and parts[1].endswith(f":{port}"):
+                        pid = parts[-1]
+                        logger.info(f"Found PID {pid} using port {port}, attempting to kill...")
+
+                        # Kill the process
+                        subprocess.run(f"taskkill /PID {pid} /F /T", shell=True)
+                        logger.info(f"Successfully killed PID {pid} using port {port}")
+            except subprocess.CalledProcessError:
+                logger.warning(f"No process found using port {port}")
+        else:
+            logger.warning("kill_process_on_port is only implemented for Windows")
     # ---------------------- Model Initialization ----------------------
 
     def load_mode(self):
