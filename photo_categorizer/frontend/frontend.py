@@ -1,3 +1,4 @@
+import atexit
 import os
 import sys
 import subprocess
@@ -71,6 +72,7 @@ class PhotoCategorizerApp(QWidget):
         # Backend and model are now deferred — GUI will show first
         QTimer.singleShot(100, self.start_backend)
         QApplication.instance().aboutToQuit.connect(self.cleanup_backend)
+        atexit.register(self.cleanup_backend)
 
     # ---------------------- Backend Management ----------------------
 
@@ -115,17 +117,17 @@ class PhotoCategorizerApp(QWidget):
             self.switchState(StateTypes.BACKEND_LOADING)
             QTimer.singleShot(1000, self.check_backend_ready)  # Retry again
 
-    def force_kill_backend(self):
-        if self.backend_process:
-            pid = self.backend_process.pid
-            logger.info(f"Force killing backend process PID: {pid}")
-            try:
-                if platform.system() == 'Windows':
-                    subprocess.run(f"taskkill /F /PID {pid} /T", shell=True)
-                else:
-                    self.backend_process.terminate()
-            except Exception as e:
-                logger.error(f"Failed to force kill backend: {e}")
+    # def force_kill_backend(self):
+    #     if self.backend_process:
+    #         pid = self.backend_process.pid
+    #         logger.info(f"Force killing backend process PID: {pid}")
+    #         try:
+    #             if platform.system() == 'Windows':
+    #                 subprocess.run(f"taskkill /F /PID {pid} /T", shell=True)
+    #             else:
+    #                 self.backend_process.terminate()
+    #         except Exception as e:
+    #             logger.error(f"Failed to force kill backend: {e}")
 
     def cleanup_backend(self):
         """Gracefully terminate backend on app exit and ensure port is freed."""
@@ -141,7 +143,6 @@ class PhotoCategorizerApp(QWidget):
             # Final check: Is port 5050 still occupied?
             if self.is_port_in_use(BACKEND_PORT):
                 logger.error(f"Port {BACKEND_PORT} is still in use. Force kill the backend.")
-                self.force_kill_backend()
             else:
                 logger.info(f"Backend successfully shut down. Port {BACKEND_PORT} is free.")
 
