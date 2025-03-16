@@ -48,7 +48,7 @@ class ClipEngine(BaseModelEngine):
 
     def _search_images(self, prompt, image_dict, batch_size=20):
         text_tensor = self.app.process_text(prompt).to(self.device)
-        image_items = list(image_dict.items())  # Convert to list of (filename, tensor)
+        image_items = list(image_dict.items())
         image_tensors = torch.stack([img for _, img in image_items]).squeeze(1)
         image_names = [name for name, _ in image_items]
 
@@ -66,6 +66,8 @@ class ClipEngine(BaseModelEngine):
     def _bpe_cluster(self, features, max_clusters):
         """BPE-like clustering with cosine similarity"""
         # Convert to unit vectors for cosine similarity
+        if max_clusters == 1:
+            return [{"indices": range(len(features)), "mean": features[0]}]
         features = features / np.linalg.norm(features, axis=1, keepdims=True)
 
         # Initialize each image as its own cluster
@@ -108,12 +110,12 @@ class ClipEngine(BaseModelEngine):
                                 key not in fixed_names[category]}
 
         remaining_features = []
-        remaining_names = self.image_names
+        remaining_names = list[self.image_dict.keys()]
         for k, v in fixed_names.items():
             remaining_names = list(set(remaining_names) - set(v))
 
         for name in remaining_names:
-            remaining_features.append(self.app.process_image(self.image_names[name]))
+            remaining_features.append(self.app.process_image(self.image_dict[name]))
 
         # 3. Calculate remaining cluster allowance
         remaining_clusters = MAX_TOTAL_CATEGORIES - len(FIXED_CATEGORIES)
