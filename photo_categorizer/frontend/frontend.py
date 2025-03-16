@@ -14,7 +14,7 @@ from photo_categorizer.logger import logger
 from photo_categorizer.model.model_types import ModelTypes
 from photo_categorizer.state import StateTypes
 from PyQt6.QtWidgets import QProgressBar
-from photo_categorizer.config import BASE_URL, BACKEND_PORT, BACKEND_HOST
+from photo_categorizer.config import BASE_URL, BACKEND_PORT, BACKEND_HOST, FIXED_CATEGORIES
 
 QSS_STYLE = """
 QWidget {
@@ -207,7 +207,7 @@ class PhotoCategorizerApp(QWidget):
         category_layout.addWidget(category_label)
 
         self.category_group = QButtonGroup(self)
-        categories = ["Pets", "People", "Food", "Landscape", "Others"]
+        categories = FIXED_CATEGORIES + ["other"]
         for cat in categories:
             btn = QRadioButton(cat)
             self.category_group.addButton(btn)
@@ -524,21 +524,7 @@ class PhotoCategorizerApp(QWidget):
 
         self.switchState(StateTypes.CATEGORIZED)
 
-        # Optional: Ask to open folder
-        choice = QMessageBox.question(self, "Open Folder", "Open target folder now?",
-                                      QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        if choice == QMessageBox.StandardButton.Yes:
-            # Cross-platform way to open folder
-            folder_path = self.target_entry.text().strip()
-            system_platform = platform.system()
-
-            if system_platform == "Windows":
-                os.system(f'explorer "{folder_path}"')
-            elif system_platform == "Darwin":  # macOS
-                os.system(f'open "{folder_path}"')
-            else:  # Linux and others
-                os.system(f'xdg-open "{folder_path}"')
-
+        self.ask_to_open_folder(self.target_entry.text().strip())
         # Step 5: Reset interface
         self.layout().removeWidget(self.progress_bar)
         self.progress_bar.deleteLater()
@@ -550,6 +536,25 @@ class PhotoCategorizerApp(QWidget):
         self.output_fields.clear()
         self.add_output_input()
         self.switchState(StateTypes.MODEL_LOADED)
+
+    def ask_to_open_folder(self, folder_path: str):
+        """Ask user if they want to open the target folder and open it if Yes."""
+        choice = QMessageBox.question(
+            self, "Open Folder", "Open target folder now?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
+        )
+        if choice == QMessageBox.StandardButton.Yes:
+            system_platform = platform.system()
+            try:
+                if system_platform == "Windows":
+                    os.system(f'explorer "{folder_path}"')
+                elif system_platform == "Darwin":  # macOS
+                    os.system(f'open "{folder_path}"')
+                else:  # Linux and others
+                    os.system(f'xdg-open "{folder_path}"')
+            except Exception as e:
+                logger.error(f"Failed to open folder {folder_path}: {e}")
+                QMessageBox.critical(self, "Error", f"Failed to open folder: {e}")
 
     def switchState(self, state: StateTypes):
         self.state = state

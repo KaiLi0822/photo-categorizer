@@ -153,7 +153,7 @@ def auto_categorize():
     # Start actual processing in a separate thread
     threading.Thread(
         target=auto_categorize_async,
-        args=(target_folder),
+        args=(target_folder,),
         daemon=True
     ).start()
 
@@ -164,17 +164,18 @@ def auto_categorize_async(target_folder):
     """Process images and move matches to output folder."""
     global model, processing_status
     try:
-        for output_folder in os.listdir(FIXED_CATEGORIES) + ["Other"]:
-             output_path = os.path.join(target_folder, output_folder)
-             os.makedirs(output_path, exist_ok=True)
+        for output_folder in FIXED_CATEGORIES + ["Other"]:
+            output_path = os.path.join(target_folder, output_folder)
+            os.makedirs(output_path, exist_ok=True)
 
         # Search images based on prompt
         logger.info(f"Running auto categorizer for {target_folder}")
         results = model.auto_categorize_image()
 
+
         # Copy matching images (customize this logic as needed)
 
-        for k, v in results:
+        for k, v in results.items():
             for image_name in v:
                 src = os.path.join(target_folder, image_name)
                 dst = os.path.join(os.path.join(target_folder, str(k)), image_name)
@@ -187,6 +188,7 @@ def auto_categorize_async(target_folder):
     except Exception as e:
         logger.error(f"Failed to process {target_folder}: {e}")
         processing_status["auto"] = "error"
+
 # ----------------- Processing Status -----------------
 @app.route('/process-status', methods=['GET'])
 def process_status():
