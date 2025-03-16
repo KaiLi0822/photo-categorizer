@@ -550,7 +550,7 @@ class PhotoCategorizerApp(QWidget):
             system_platform = platform.system()
             try:
                 if system_platform == "Windows":
-                    os.system(f'explorer "{folder_path}"')
+                    os.startfile(os.path.abspath(os.path.normpath(folder_path)))
                 elif system_platform == "Darwin":  # macOS
                     os.system(f'open "{folder_path}"')
                 else:  # Linux and others
