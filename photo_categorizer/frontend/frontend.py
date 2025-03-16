@@ -86,13 +86,14 @@ class PhotoCategorizerApp(QWidget):
             backend_path = self.resource_path(os.path.join('backend', 'backend.py'))
 
         # Windows-specific creation flag
-        creationflags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW if platform.system() == 'Windows' else 0
+        # creationflags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW if platform.system() == 'Windows' else 0
 
         self.backend_process = subprocess.Popen(
             [sys.executable, backend_path] if backend_path.endswith('.py') else [backend_path],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            creationflags=creationflags  # Important on Windows
+            cwd=os.path.dirname(backend_path),
+            start_new_session=True  # Important on Windows
         )
 
         QTimer.singleShot(500, lambda: self.check_backend_ready())  # Check soon
@@ -115,6 +116,18 @@ class PhotoCategorizerApp(QWidget):
             self.switchState(StateTypes.BACKEND_LOADING)
             QTimer.singleShot(1000, self.check_backend_ready)  # Retry again
 
+    def force_kill_backend(self):
+        if self.backend_process:
+            pid = self.backend_process.pid
+            logger.info(f"Force killing backend process PID: {pid}")
+            try:
+                if platform.system() == 'Windows':
+                    subprocess.run(f"taskkill /F /PID {pid} /T", shell=True)
+                else:
+                    self.backend_process.terminate()
+            except Exception as e:
+                logger.error(f"Failed to force kill backend: {e}")
+
     def cleanup_backend(self):
         """Gracefully terminate backend on app exit and ensure port is freed."""
         if self.backend_process:
@@ -125,7 +138,7 @@ class PhotoCategorizerApp(QWidget):
                 logger.info("Backend process terminated.")
             except subprocess.TimeoutExpired:
                 logger.warning("Force killing backend...")
-                self.backend_process.kill()
+                self.force_kill_backend()
 
             # Final check: Is port 5050 still occupied?
             if self.is_port_in_use(BACKEND_PORT):
