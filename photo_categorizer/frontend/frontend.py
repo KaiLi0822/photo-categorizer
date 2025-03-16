@@ -79,7 +79,7 @@ class PhotoCategorizerApp(QWidget):
     def start_backend(self):
 
         """Start Flask backend and ensure it's ready."""
-
+        logger.info("Starting backend process...")
         if getattr(sys, 'frozen', False):
             # Packaged mode
             backend_path = self.resource_path(os.path.join('backend_executable', 'backend_executable.exe') if platform.system() == 'Windows' else 'backend_executable/backend_executable')
@@ -98,6 +98,7 @@ class PhotoCategorizerApp(QWidget):
         )
 
         QTimer.singleShot(500, lambda: self.check_backend_ready())  # Check soon
+        logger.info(f"Backend process started: {self.backend_process.pid}")
 
     def check_backend_ready(self):
         """Check if backend is ready without blocking."""
@@ -131,6 +132,7 @@ class PhotoCategorizerApp(QWidget):
 
     def cleanup_backend(self):
         """Gracefully terminate backend on app exit and ensure port is freed."""
+        logger.info(f"Running cleanup_backend. Backend process: {self.backend_process}")
         if self.backend_process:
             logger.info("Shutting down backend...")
             self.backend_process.terminate()
