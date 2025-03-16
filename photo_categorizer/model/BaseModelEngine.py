@@ -9,8 +9,7 @@ class BaseModelEngine(ABC):
 
     def __init__(self):
         self.device = None
-        self.images = []  # Hold preprocessed image tensors
-        self.image_names = []  # Hold image file names
+        self.image_dict = {}
 
     @abstractmethod
     def load_model(self):
@@ -20,6 +19,14 @@ class BaseModelEngine(ABC):
     @abstractmethod
     def load_images_from_directory(self, image_dir):
         """Preload images from directory. Must be implemented by subclass."""
+        pass
+
+    @abstractmethod
+    def search_images(self, prompt, batch_size):
+        pass
+
+    @abstractmethod
+    def auto_categorize_image(self):
         pass
 
     # @abstractmethod

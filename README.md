@@ -1,7 +1,7 @@
 
 # 📂 Photo Categorizer App
 
-Photo Categorizer is a desktop application that allows you to **automatically categorize images into different folders** based on prompts using the CLIP model. The application includes a **PyQt6 frontend GUI**, a **Flask backend**, and a **model service based on OpenAI CLIP**.
+Photo Categorizer is a desktop application that allows you to **automatically categorize images into different folders** based on prompts using the CLIP model. The application includes a **PyQt6 frontend GUI**, a **Flask backend**, and a **model module based on OpenAI CLIP**.
 
 ---
 
@@ -15,7 +15,6 @@ photo-categorizer/
 │   │   └── backend.py
 │   ├── frontend/           # PyQt6 GUI frontend
 │   │   ├── frontend.py
-│   │   └── styles.qss      # Styling
 │   ├── model/              # Model definitions and factory
 │   │   ├── BaseModelEngine.py
 │   │   ├── clip_engine.py
@@ -25,6 +24,7 @@ photo-categorizer/
 │   ├── logger.py           # Logging configuration
 │   ├── main.py             # Application entry point
 │   └── state.py            # State management
+├── sample_pictures/
 └── README.md
 ```
 
@@ -47,7 +47,7 @@ photo-categorizer/
 ### 1. **Frontend (PyQt6)**
 - Provides a simple GUI where users can:
   - Select a **target folder** containing images.
-  - Specify **output folders** and **text prompts** for categorization.
+  - Specify **output folders** and **text prompts** for further categorization.
 - Starts backend service automatically.
 - Monitors backend status and updates UI accordingly.
 - Initiates image loading and categorization when ready.
@@ -66,6 +66,7 @@ photo-categorizer/
   - `/load-images`: Preload and process images from a target directory.
   - `/start-process`: Start image classification per output folder/prompt.
   - `/process-status`: Track the status of each folder being processed.
+  - `/auto-categorize`: Automatically categorize images into predefined categories.
 
 > **Backend file**: `photo_categorizer/backend/backend.py`
 
@@ -145,10 +146,11 @@ Using PyInstaller:
 
 ## ✅ Usage
 
-1. **Select target folder** — choose the images to categorize.
-2. **Add output folders and prompts** — specify how you want to categorize images.
-3. **Start categorization** — watch the progress bar as each folder is processed.
-4. **Review results** — categorized images will be moved into the corresponding output folders.
+1. **Select the target folder** — Browse and choose the folder containing images you want to categorize.
+2. **Choose a category for further categorization** — Pick one of the predefined categories (e.g., pets, people, food, landscape, other).
+3. **Add output folders and prompts** — Define folder names and prompts that the AI model will use to classify images.
+4. **Start categorization** — Click the Start button to initiate the process. You can track the status of each folder as it's being processed.
+5. **Review results** — After processing, images will be copied into corresponding output folders based on the prompts and categories.
 
 ---
 
