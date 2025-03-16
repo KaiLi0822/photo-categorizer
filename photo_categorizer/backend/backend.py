@@ -119,6 +119,7 @@ def process_images_async(target_folder, selected_text, output_folder, prompt):
         )
 
         model.load_images_from_directory(target_folder)
+        logger.info(f"Loading images from '{target_folder}'")
         # Copy matching images (customize this logic as needed)
         for image_name, score in results:
             if score > THRESHOLD:
