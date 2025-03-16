@@ -9,6 +9,7 @@ from photo_categorizer.logger import logger
 from photo_categorizer.model.BaseModelEngine import BaseModelEngine
 from photo_categorizer.config import FIXED_CATEGORIES, MAX_TOTAL_CATEGORIES, THRESHOLD
 import numpy as np
+from collections import Counter
 
 
 class ClipEngine(BaseModelEngine):
@@ -43,8 +44,11 @@ class ClipEngine(BaseModelEngine):
         Search for images matching the text prompt in batches.
         Returns a list of (image_name, similarity_score).
         """
+        return self._search_images(prompt, self.image_dict, batch_size)
+
+    def _search_images(self, prompt, image_dict, batch_size=20):
         text_tensor = self.app.process_text(prompt).to(self.device)
-        image_items = list(self.image_dict.items())  # Convert to list of (filename, tensor)
+        image_items = list(image_dict.items())  # Convert to list of (filename, tensor)
         image_tensors = torch.stack([img for _, img in image_items]).squeeze(1)
         image_names = [name for name, _ in image_items]
 
@@ -93,13 +97,15 @@ class ClipEngine(BaseModelEngine):
         return clusters
 
     def auto_categorize(self):
+        unprocessed_dict = self.image_dict.copy()
         fixed_members = defaultdict(list)
         fixed_names = defaultdict(list)
         for category in FIXED_CATEGORIES:
-            members = zip(self.image_names, self.search_images(category))
+            members = zip(unprocessed_dict, self._search_images(category, unprocessed_dict))
             fixed_members[category] = [m[1][0] for m in members if m[1][1] > THRESHOLD]
             fixed_names[category] = [m[0] for m in members if m[1][1] > THRESHOLD]
-
+            unprocessed_dict = {key: value for key, value in unprocessed_dict.items() if
+                                key not in fixed_names[category]}
 
         remaining_features = []
         remaining_names = self.image_names
@@ -128,7 +134,6 @@ class ClipEngine(BaseModelEngine):
                 fixed_names[label] = [remaining_names[i] for i in cluster["indices"]]
 
         return fixed_names
-
 
 
 if __name__ == '__main__':
