@@ -213,9 +213,6 @@ class PhotoCategorizerApp(QWidget):
             self.category_group.addButton(btn)
             category_layout.addWidget(btn)
 
-            if cat == "other":
-                btn.setChecked(True)
-
         layout.addLayout(category_layout)
 
         layout.addSpacing(20)
@@ -273,7 +270,10 @@ class PhotoCategorizerApp(QWidget):
         self.state_label = QLabel()
         layout.addWidget(self.state_label, alignment=Qt.AlignmentFlag.AlignLeft)
 
-
+        # Add this to force 'other' selected at the end
+        for btn in self.category_group.buttons():
+            if btn.text().lower() == "other":
+                btn.setChecked(True)  # Ensure it's selected
 
 
     def resource_path(self, relative_path):
@@ -322,7 +322,7 @@ class PhotoCategorizerApp(QWidget):
         """Send a request to backend to load images from selected folder."""
         logger.info(f"Sending load-images request for folder: {folder}")
         try:
-            response = requests.post(f"{BASE_URL}/auto_categorize", json={"target_folder": folder})
+            response = requests.post(f"{BASE_URL}/auto-categorize", json={"target_folder": folder})
             if response.status_code == 200:
                 message = response.json().get('message')
                 logger.info(f"Backend response: {message}")
@@ -454,21 +454,24 @@ class PhotoCategorizerApp(QWidget):
             # Step 5: All done
             self.finish_categorization()
             return
-
+        selected_text = self.category_group.checkedButton().text()
         output = self.outputs[self.current_output_index]
-        logger.info(f"Starting processing for: {output['folder_name']}")
-        self.state_label.setText(f"Processing folder: {output['folder_name']}")
+        logger.info(f"Starting processing for: {selected_text}/{output['folder_name']}")
+        self.state_label.setText(f"Processing folder: {selected_text}/{output['folder_name']}")
 
         # Step 4.1: Trigger the job
         try:
             response = requests.post(f"{BASE_URL}start-process", json={
                 "target_folder": self.target_entry.text().strip(),
+                # the selected radio button
+                "selected_text": selected_text,
                 "output": output
             })
             if response.status_code == 200:
+                # add the selected radio button
                 logger.info(f"Triggered backend processing for {output['folder_name']}")
-                # Step 4.2: Start polling for status
-                self.poll_processing_status(output['folder_name'])
+                # Step 4.2: Start polling for status, add selected radio button
+                self.poll_processing_status(selected_text+"_"+output['folder_name'])
             else:
                 error_msg = response.json().get('error', 'Unknown error')
                 logger.error(f"Failed to start processing: {error_msg}")
@@ -522,20 +525,20 @@ class PhotoCategorizerApp(QWidget):
     def finish_categorization(self):
         """Handle finishing of all outputs."""
 
-        self.switchState(StateTypes.CATEGORIZED)
+        self.switchState(StateTypes.SECOND_CATEGORIZED)
 
-        self.ask_to_open_folder(self.target_entry.text().strip())
+        self.ask_to_open_folder(os.path.join(self.target_entry.text().strip(),
+                                             self.category_group.checkedButton().text()))
         # Step 5: Reset interface
         self.layout().removeWidget(self.progress_bar)
         self.progress_bar.deleteLater()
         self.progress_bar = None
 
-        self.target_entry.clear()
         for _, _, frame in self.output_fields:
             frame.deleteLater()
         self.output_fields.clear()
         self.add_output_input()
-        self.switchState(StateTypes.MODEL_LOADED)
+        self.switchState(StateTypes.FIRST_CATEGORIZED)
 
     def ask_to_open_folder(self, folder_path: str):
         """Ask user if they want to open the target folder and open it if Yes."""
