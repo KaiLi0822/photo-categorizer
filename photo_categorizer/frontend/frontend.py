@@ -16,6 +16,7 @@ from photo_categorizer.model.model_types import ModelTypes
 from photo_categorizer.state import StateTypes
 from PyQt6.QtWidgets import QProgressBar
 from photo_categorizer.config import BASE_URL, BACKEND_PORT, BACKEND_HOST, FIXED_CATEGORIES
+import psutil
 
 QSS_STYLE = """
 QWidget {
@@ -72,7 +73,6 @@ class PhotoCategorizerApp(QWidget):
         # Backend and model are now deferred — GUI will show first
         QTimer.singleShot(100, self.start_backend)
         QApplication.instance().aboutToQuit.connect(self.cleanup_backend)
-        atexit.register(self.cleanup_backend)
 
     # ---------------------- Backend Management ----------------------
 
@@ -118,35 +118,35 @@ class PhotoCategorizerApp(QWidget):
             self.switchState(StateTypes.BACKEND_LOADING)
             QTimer.singleShot(1000, self.check_backend_ready)  # Retry again
 
-    # def force_kill_backend(self):
-    #     if self.backend_process:
-    #         pid = self.backend_process.pid
-    #         logger.info(f"Force killing backend process PID: {pid}")
-    #         try:
-    #             if platform.system() == 'Windows':
-    #                 subprocess.run(f"taskkill /F /PID {pid} /T", shell=True)
-    #             else:
-    #                 self.backend_process.terminate()
-    #         except Exception as e:
-    #             logger.error(f"Failed to force kill backend: {e}")
-
     def cleanup_backend(self):
         """Gracefully terminate backend on app exit and ensure port is freed."""
         logger.info(f"Running cleanup_backend. Backend process: {self.backend_process}")
         if self.backend_process:
             logger.info("Shutting down backend...")
-            self.backend_process.terminate()
+            self.kill_process_and_children(self.backend_process.pid)
             try:
                 self.backend_process.wait(timeout=5)
                 logger.info("Backend process terminated.")
             except subprocess.TimeoutExpired:
-                logger.warning("Force killing backend...")
+                logger.warning("TimeoutExpired...")
 
             # Final check: Is port 5050 still occupied?
             if self.is_port_in_use(BACKEND_PORT):
-                logger.error(f"Port {BACKEND_PORT} is still in use. Force kill the backend.")
+                logger.error(f"Port {BACKEND_PORT} is still in use.")
             else:
                 logger.info(f"Backend successfully shut down. Port {BACKEND_PORT} is free.")
+
+    def kill_process_and_children(self, pid):
+        try:
+            parent = psutil.Process(pid)
+            children = parent.children(recursive=True)
+            for child in children:
+                logger.info(f"Killing child process: {child.pid}")
+                child.kill()
+            logger.info(f"Killing parent process: {pid}")
+            parent.kill()
+        except psutil.NoSuchProcess:
+            logger.warning(f"No such process: {pid}")
 
     def is_port_in_use(self, port):
         """Check if a port is in use."""
