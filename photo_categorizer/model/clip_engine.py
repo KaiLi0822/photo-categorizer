@@ -103,9 +103,8 @@ class ClipEngine(BaseModelEngine):
         fixed_members = defaultdict(list)
         fixed_names = defaultdict(list)
         for category in FIXED_CATEGORIES:
-            members = zip(unprocessed_dict, self._search_images(category, unprocessed_dict))
-            fixed_members[category] = [m[1][0] for m in members if m[1][1] > THRESHOLD]
-            fixed_names[category] = [m[0] for m in members if m[1][1] > THRESHOLD]
+            members = self._search_images(category, unprocessed_dict)
+            fixed_names[category] = [m[0] for m in members if m[1] > THRESHOLD]
             unprocessed_dict = {key: value for key, value in unprocessed_dict.items() if
                                 key not in fixed_names[category]}
 
@@ -129,7 +128,7 @@ class ClipEngine(BaseModelEngine):
             clusters = self._bpe_cluster(remaining_features, remaining_clusters)
 
             # Create cluster names
-            cluster_labels = ["Other" for i in range(len(clusters))]
+            cluster_labels = ["other" for i in range(len(clusters))]
 
             # Assign images to clusters
             for cluster, label in zip(clusters, cluster_labels):
