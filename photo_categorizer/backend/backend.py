@@ -164,7 +164,7 @@ def auto_categorize_async(target_folder):
     """Process images and move matches to output folder."""
     global model, processing_status
     try:
-        for output_folder in FIXED_CATEGORIES + ["Other"]:
+        for output_folder in FIXED_CATEGORIES + ["other"]:
             output_path = os.path.join(target_folder, output_folder)
             os.makedirs(output_path, exist_ok=True)
 

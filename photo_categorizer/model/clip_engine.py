@@ -109,12 +109,12 @@ class ClipEngine(BaseModelEngine):
                                 key not in fixed_names[category]}
 
         remaining_features = []
-        remaining_names = list[self.image_dict.keys()]
+        remaining_names = list(self.image_dict.keys())
         for k, v in fixed_names.items():
             remaining_names = list(set(remaining_names) - set(v))
 
         for name in remaining_names:
-            remaining_features.append(self.app.process_image(self.image_dict[name]))
+            remaining_features.append(self.image_dict[name])
 
         # 3. Calculate remaining cluster allowance
         remaining_clusters = MAX_TOTAL_CATEGORIES - len(FIXED_CATEGORIES)

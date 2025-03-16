@@ -212,9 +212,14 @@ class PhotoCategorizerApp(QWidget):
             btn = QRadioButton(cat)
             self.category_group.addButton(btn)
             category_layout.addWidget(btn)
+
+            if cat == "other":
+                btn.setChecked(True)
+
         layout.addLayout(category_layout)
 
         layout.addSpacing(20)
+
 
         # Step 3: Input prompt to categorize with Add button on the same line
         step3_layout = QHBoxLayout()  # Horizontal layout to align label and button
@@ -343,7 +348,7 @@ class PhotoCategorizerApp(QWidget):
                     if status == "completed":
                         logger.info("First categorization completed.")
                         self.switchState(StateTypes.FIRST_CATEGORIZED)
-                        QMessageBox.information(self, "Success", "First categorization completed successfully.")
+                        self.ask_to_open_folder(self.target_entry.text().strip())
 
                     elif status == "error":
                         logger.error(
@@ -420,13 +425,8 @@ class PhotoCategorizerApp(QWidget):
     def start_categorization(self):
         """Start categorization process with progress tracking for each output folder."""
 
-        # Step 1: Check if images are loaded
-        if not self.target_entry.text().strip():
-            QMessageBox.warning(self, "Warning", "Please select a target folder.")
-            return
-
-        if self.state != StateTypes.IMAGES_LOADED:
-            QMessageBox.warning(self, "Warning", "Images are not loaded yet. Please try again later.")
+        if self.state != StateTypes.FIRST_CATEGORIZED:
+            QMessageBox.warning(self, "Warning", "Please complete the first categorization!")
             return
 
         # Step 2: Collect folders/prompts
