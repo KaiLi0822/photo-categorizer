@@ -154,7 +154,8 @@ Using PyInstaller:
 
 ---
 
-
+## 🖥️ Proposed UI
+![Proposed_UI](./UI_image.jpg)
 
 ## 📷 Screenshots
 

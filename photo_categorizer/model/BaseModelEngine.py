@@ -29,6 +29,10 @@ class BaseModelEngine(ABC):
     def auto_categorize_image(self):
         pass
 
+    @abstractmethod
+    def clean_memory(self):
+        pass
+
     # @abstractmethod
     # def search_images(self, image_dir, image_names, text, output_dir=None, display=False):
     #     """Search images by text. Must be implemented by subclass."""
