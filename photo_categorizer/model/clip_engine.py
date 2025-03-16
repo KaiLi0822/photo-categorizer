@@ -136,6 +136,8 @@ class ClipEngine(BaseModelEngine):
 
         return fixed_names
 
+    def clean_memory(self):
+        self.image_dict.clear()
 
 if __name__ == '__main__':
     clip_engine = ClipEngine()

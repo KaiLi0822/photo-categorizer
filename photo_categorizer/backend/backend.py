@@ -118,6 +118,7 @@ def process_images_async(target_folder, selected_text, output_folder, prompt):
             prompt=prompt
         )
 
+        model.load_images_from_directory(target_folder)
         # Copy matching images (customize this logic as needed)
         for image_name, score in results:
             if score > THRESHOLD:
@@ -133,6 +134,10 @@ def process_images_async(target_folder, selected_text, output_folder, prompt):
     except Exception as e:
         logger.error(f"Failed to process {output_folder}: {e}")
         processing_status[selected_text_folder_name] = "error"
+
+    finally:
+        model.clean_memory()
+        logger.info(f"loaded image for {target_folder} cleaned")
 
 
 @app.route('/auto-categorize', methods=['POST'])
@@ -192,6 +197,10 @@ def auto_categorize_async(target_folder):
     except Exception as e:
         logger.error(f"Failed to process {target_folder}: {e}")
         processing_status["auto"] = "error"
+
+    finally:
+        model.clean_memory()
+        logger.info(f"loaded image for auto categorizer cleaned")
 
 # ----------------- Processing Status -----------------
 @app.route('/process-status', methods=['GET'])
