@@ -96,7 +96,7 @@ class ClipEngine(BaseModelEngine):
 
         return clusters
 
-    def auto_categorize(self):
+    def auto_categorize_image(self):
         unprocessed_dict = self.image_dict.copy()
         fixed_members = defaultdict(list)
         fixed_names = defaultdict(list)

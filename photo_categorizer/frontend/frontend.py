@@ -7,7 +7,7 @@ import platform
 
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QLabel, QHBoxLayout, QPushButton,
-    QFileDialog, QLineEdit, QMessageBox, QScrollArea, QFrame
+    QFileDialog, QLineEdit, QMessageBox, QScrollArea, QFrame, QButtonGroup, QRadioButton
 )
 from PyQt6.QtCore import Qt, QTimer
 from photo_categorizer.logger import logger
@@ -19,25 +19,44 @@ from photo_categorizer.config import BASE_URL, BACKEND_PORT, BACKEND_HOST
 QSS_STYLE = """
 QWidget {
     font-size: 14px;
+    background-color: #F8FAF1;
+    color: #265073;
 }
 
 QLineEdit {
     padding: 8px;
     border: 1px solid gray;
     border-radius: 5px;
+    background-color: white;
+    min-height: 30px;  /* Consistent height */
 }
 
 QPushButton {
-    padding: 8px;
-    background-color: #0078D7;
+    padding: 4px 10px;
+    min-height: 30px;  /* Match input height */
+    background-color: #2D9596;
     color: white;
     border-radius: 5px;
+    font-size: 13px;
+    min-width: 80px;  /* Reasonable width */
+    max-width: 100px;
 }
 
 QPushButton:hover {
     background-color: #005BB5;
 }
+
+QLabel {
+    font-weight: bold;
+}
+
+QLabel.step-label {
+    font-size: 18px;
+    font-weight: bold;
+}
 """
+
+
 class PhotoCategorizerApp(QWidget):
     def __init__(self):
         super().__init__()
@@ -158,10 +177,15 @@ class PhotoCategorizerApp(QWidget):
     # ---------------------- GUI Layout and Logic ----------------------
 
     def build_ui(self):
-        """Build the main GUI layout."""
+        """Build the updated main GUI layout with dynamic visibility."""
         layout = QVBoxLayout(self)
+        layout.setSpacing(15)
 
-        # Target folder selection
+        # Step 1: Select image folder
+        step1_label = QLabel("Step 1: Select the image folder")
+        step1_label.setProperty("class", "step-label")
+        layout.addWidget(step1_label)
+
         target_layout = QHBoxLayout()
         self.target_entry = QLineEdit()
         browse_button = QPushButton("Browse")
@@ -171,33 +195,81 @@ class PhotoCategorizerApp(QWidget):
         target_layout.addWidget(browse_button)
         layout.addLayout(target_layout)
 
-        # Scroll area for dynamic filters
+        layout.addSpacing(20)
+
+        # Step 2: Select a folder for further categorization
+        step2_label = QLabel("Step 2: Select a folder for further categorization")
+        step2_label.setProperty("class", "step-label")
+        layout.addWidget(step2_label)
+
+        category_layout = QHBoxLayout()
+        category_label = QLabel("Categories:")
+        category_layout.addWidget(category_label)
+
+        self.category_group = QButtonGroup(self)
+        categories = ["Pets", "People", "Food", "Landscape", "Others"]
+        for cat in categories:
+            btn = QRadioButton(cat)
+            self.category_group.addButton(btn)
+            category_layout.addWidget(btn)
+        layout.addLayout(category_layout)
+
+        layout.addSpacing(20)
+
+        # Step 3: Input prompt to categorize with Add button on the same line
+        step3_layout = QHBoxLayout()  # Horizontal layout to align label and button
+
+        step3_label = QLabel("Step 3: Input prompt to categorize")
+        step3_label.setProperty("class", "step-label")
+
+        add_button = QPushButton("Add")
+        add_button.clicked.connect(self.add_output_input)
+        add_button.setFixedWidth(80)  # Reasonable width to avoid being too wide
+
+        # Add label and button to same line
+        step3_layout.addWidget(step3_label)
+        step3_layout.addStretch()  # Push button to the right
+        step3_layout.addWidget(add_button)
+
+        # Add the whole line to main layout
+        layout.addLayout(step3_layout)
+
+        layout.addSpacing(10)  # Space before scroll area
+
+        # Step 4: Scroll area for dynamic output + prompt pairs
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setStyleSheet("QScrollArea { border: none; }")
+
+        # Scroll content and layout
         self.scroll_content = QWidget()
         self.scroll_layout = QVBoxLayout(self.scroll_content)
-        self.scroll_layout.setContentsMargins(0, 0, 0, 0)  # No margins
-        self.scroll_layout.setSpacing(5)  # Small gap between rows
+        self.scroll_layout.setContentsMargins(0, 0, 0, 0)
+        self.scroll_layout.setSpacing(10)
         self.scroll_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.scroll_area.setWidget(self.scroll_content)
+
+        # Add scroll area to main layout
         layout.addWidget(self.scroll_area)
 
-        # Initial filter input
+        # Initial output + prompt input (first line)
         self.add_output_input()
 
-        # Control buttons
-        add_button = QPushButton("Add Folder")
-        add_button.clicked.connect(self.add_output_input)
-        layout.addWidget(add_button)
+        layout.addSpacing(20)
 
-        start_button = QPushButton("Start Categorization")
-        start_button.clicked.connect(self.start_categorization)
-        layout.addWidget(start_button)
+        # Step 5: Start button (center aligned)
+        self.start_button = QPushButton("Start")
+        self.start_button.clicked.connect(self.start_categorization)
+        layout.addWidget(self.start_button, alignment=Qt.AlignmentFlag.AlignCenter)
 
-        # Status bar
+        layout.addSpacing(10)
+
+        # Status bar (bottom left)
         self.state_label = QLabel()
-        layout.addWidget(self.state_label)
+        layout.addWidget(self.state_label, alignment=Qt.AlignmentFlag.AlignLeft)
+
+
+
 
     def resource_path(self, relative_path):
         """Get absolute path to resource, works for dev and PyInstaller."""
@@ -206,10 +278,10 @@ class PhotoCategorizerApp(QWidget):
 
     def select_folder(self):
         """Select the target folder and notify backend to load images."""
-        if self.state == StateTypes.IMAGES_LOADING:
+        if self.state == StateTypes.SECOND_IMAGES_LOADING:
             QMessageBox.warning(self, "Warning", "Loading images...")
             return
-        if self.state == StateTypes.CATEGORIZING:
+        if self.state == StateTypes.FIRST_CATEGORIZING or self.state == StateTypes.SECOND_CATEGORIZING:
             QMessageBox.warning(self, "Warning", "Categorizing...")
             return
         folder = QFileDialog.getExistingDirectory(self, "Select Target Directory")
@@ -217,43 +289,83 @@ class PhotoCategorizerApp(QWidget):
             self.target_entry.setText(folder)
             logger.info(f"Selected folder: {folder}")
             # Start polling model status before loading images
-            self.start_loading_images()
+            self.start_first_categorizing()
 
-    def start_loading_images(self):
+    def start_first_categorizing(self):
         """Start polling backend for model status every 2 seconds until ready to load images."""
         if hasattr(self, 'status_check_timer') and self.status_check_timer.isActive():
             self.status_check_timer.stop()
             self.status_check_timer.deleteLater()  # Clean up the old timer
         self.status_check_timer = QTimer(self)
-        self.status_check_timer.timeout.connect(self.check_status_and_load_images)
+        self.status_check_timer.timeout.connect(self.check_status_and_first_categorizing)
         self.status_check_timer.start(2000)  # Poll every 2 seconds
 
-    def check_status_and_load_images(self):
+    def check_status_and_first_categorizing(self):
         """Check if model is loaded and trigger image loading if ready."""
         try:
-            if self.state == StateTypes.MODEL_LOADED or self.state == StateTypes.IMAGES_LOADED:
+            if (self.state == StateTypes.MODEL_LOADED or self.state == StateTypes.FIRST_CATEGORIZED or self.state == StateTypes.SECOND_IMAGES_LOADED
+                    or self.state == StateTypes.SECOND_CATEGORIZED):
                 self.status_check_timer.stop()  # Stop polling
-                self.switchState(StateTypes.IMAGES_LOADING)
-                self.load_images(self.target_entry.text().strip())  # Trigger image load
+                self.switchState(StateTypes.FIRST_CATEGORIZING)
+                self.first_categorizing(self.target_entry.text().strip())  # Trigger image load
             else:
                 logger.info("State: Model is loading or previous images are loading.")
         except Exception as e:
             logger.error(f"Failed to check state: {e}")
 
-    def load_images(self, folder):
+    def first_categorizing(self, folder):
         """Send a request to backend to load images from selected folder."""
         logger.info(f"Sending load-images request for folder: {folder}")
         try:
-            response = requests.post(f"{BASE_URL}/load-images", json={"target_folder": folder})
+            response = requests.post(f"{BASE_URL}/auto_categorize", json={"target_folder": folder})
             if response.status_code == 200:
-                message = response.json().get('message', "Images loaded.")
+                message = response.json().get('message')
                 logger.info(f"Backend response: {message}")
-                self.switchState(StateTypes.IMAGES_LOADED)
+                # monitor the first catogorizing
+                self.poll_first_categorizing_status("auto")
             else:
                 error_msg = response.json().get('error', 'Unknown error')
                 logger.error(f"Backend error: {error_msg}")
         except Exception as e:
             logger.error(f"Connection error: {e}")
+
+    def poll_first_categorizing_status(self, folder_name):
+        """Poll backend to check if first categorization (auto categorize) is complete."""
+        logger.info(f"Polling status for first categorization: {folder_name}")
+
+        def check_status():
+            try:
+                response = requests.get(f"{BASE_URL}/process-status?folder={folder_name}")
+                if response.status_code == 200:
+                    status = response.json().get('status')
+                    logger.info(f"First categorization status for {folder_name}: {status}")
+
+                    if status == "completed":
+                        logger.info("First categorization completed.")
+                        self.switchState(StateTypes.FIRST_CATEGORIZED)
+                        QMessageBox.information(self, "Success", "First categorization completed successfully.")
+
+                    elif status == "error":
+                        logger.error(
+                            f"Error during first categorization: {response.json().get('error', 'Unknown error')}")
+                        self.switchState(StateTypes.MODEL_LOADED)
+                        QMessageBox.critical(self, "Error",
+                                             "An error occurred during categorization. Please check logs.")
+
+                    else:
+                        # Still processing — poll again in 2 seconds
+                        QTimer.singleShot(2000, check_status)
+
+                else:
+                    logger.error(f"Failed to check first categorization status for {folder_name}")
+                    QTimer.singleShot(2000, check_status)  # Retry
+
+            except Exception as e:
+                logger.error(f"Error while polling first categorization {folder_name}: {e}")
+                QTimer.singleShot(2000, check_status)  # Retry
+
+        # Start first check
+        QTimer.singleShot(2000, check_status)
 
     def add_output_input(self):
         """Add a new row for folder name and prompt."""
@@ -274,7 +386,7 @@ class PhotoCategorizerApp(QWidget):
         prompt_input.setMinimumWidth(250)  # Longer width
 
         # Labels with fixed width for alignment
-        label_folder = QLabel("Output Folder:")
+        label_folder = QLabel("Folder Name:")
         label_folder.setFixedWidth(90)
         label_prompt = QLabel("Prompt:")
         label_prompt.setFixedWidth(50)

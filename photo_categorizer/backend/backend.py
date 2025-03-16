@@ -152,7 +152,7 @@ def auto_categorize():
 
     # Start actual processing in a separate thread
     threading.Thread(
-        target=process_images_async,
+        target=auto_categorize_async,
         args=(target_folder),
         daemon=True
     ).start()
