@@ -30,6 +30,55 @@ photo-categorizer/
 
 ---
 
+## 🛠️ Project Setup with Poetry
+
+This project uses [Poetry](https://python-poetry.org/) to manage dependencies and environments.
+
+### Step 1: Install Poetry
+
+Follow the official installation guide here: https://python-poetry.org/docs/#installation
+
+Or install directly via the terminal:
+
+```bash
+curl -sSL https://install.python-poetry.org | python3 -
+```
+
+> After installation, restart your terminal or run:
+>
+> ```bash
+> source $HOME/.poetry/env
+> ```
+
+### Step 2: Clone the Repository
+
+```bash
+git clone https://github.com/KaiLi0822/photo-categorizer.git
+cd photo-categorizer
+```
+
+### Step 3: Install Dependencies
+
+```bash
+poetry install
+```
+
+### Step 4: Activate the Virtual Environment
+
+```bash
+poetry shell
+```
+
+### Step 5: Run the Application
+
+```bash
+python photo_categorizer/main.py
+```
+
+---
+
+
+
 ## 🚀 Features
 
 - **Categorize images** using natural language prompts (via CLIP model).
